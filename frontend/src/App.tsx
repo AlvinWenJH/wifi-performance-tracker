@@ -316,25 +316,25 @@ function App() {
 
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-3">
+    <div className="min-h-screen bg-gray-900 text-white p-2 md:p-3">
       {/* Header */}
-      <header className="mb-4 sticky top-0 z-10 -mx-3 px-3 py-3 border-b border-gray-700 bg-gray-800/95 backdrop-blur supports-[backdrop-filter]:bg-gray-800/75">
-        <div className="flex items-center justify-between">
+      <header className="mb-4 sticky top-0 z-10 -mx-2 md:-mx-3 px-2 md:px-3 py-3 border-b border-gray-700 bg-gray-800/95 backdrop-blur supports-[backdrop-filter]:bg-gray-800/75">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-blue-600 rounded-lg">
               <Wifi className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">WiFi Performance Tracker</h1>
-              <p className="text-sm text-gray-400">Real-time network monitoring dashboard</p>
+              <h1 className="text-xl lg:text-2xl font-bold text-white">WiFi Performance Tracker</h1>
+              <p className="text-xs lg:text-sm text-gray-400">Real-time network monitoring dashboard</p>
             </div>
           </div>
-          <div className="flex flex-col items-end space-y-1">
+          <div className="flex flex-col lg:items-end space-y-2 lg:space-y-1">
             <div className="flex items-center space-x-1.5">
               <div className={`w-3 h-3 rounded-full ${monitoringActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
               <span className="text-sm font-medium text-white">{monitoringActive ? 'Monitoring Active' : 'Monitoring Inactive'}</span>
             </div>
-            <div className="flex items-center space-x-1.5">
+            <div className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-1.5">
               <div className="text-xs text-gray-400">
                 Last updated: {lastUpdate ? lastUpdate.toLocaleString() : '--'}
               </div>
@@ -342,15 +342,15 @@ function App() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-xs lg:text-sm"
                   onClick={debouncedFetchData}
                 >
-                  <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+                  <RefreshCw className="h-3 w-3 lg:h-4 lg:w-4 mr-1" /> Refresh
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-xs lg:text-sm"
                   onClick={toggleMonitoring}
                 >
                   {monitoringActive ? 'Stop' : 'Start'}
@@ -362,9 +362,9 @@ function App() {
       </header>
 
       {/* Main Dashboard - Single Screen Layout */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Top Row - Main Performance Card */}
-        <Card className="col-span-12 bg-gray-800 border-gray-700 shadow-lg">
+        <Card className="col-span-1 lg:col-span-12 bg-gray-800 border-gray-700 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-3">
             <div>
               <CardTitle className="text-base font-medium">Network Performance Dashboard</CardTitle>
@@ -385,9 +385,9 @@ function App() {
             </div>
           </CardHeader>
           <CardContent className="py-1 px-3">
-            <div className="grid grid-cols-12 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
               {/* Reliability Stats */}
-              <div className="col-span-3 bg-gray-850 rounded-lg p-3 border border-gray-700 h-full flex flex-col">
+              <div className="col-span-1 md:col-span-1 lg:col-span-3 bg-gray-850 rounded-lg p-3 border border-gray-700 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-300">Reliability</h3>
                   <Activity className="h-4 w-4 text-blue-400" />
@@ -419,8 +419,8 @@ function App() {
                 </div>
               </div>
 
-              {/* Expanded ISP Information */}
-              <div className="col-span-9 bg-gray-850 rounded-lg p-3 border border-gray-700 h-full flex flex-col">
+              {/* Network & ISP Information */}
+              <div className="col-span-1 md:col-span-1 lg:col-span-9 bg-gray-850 rounded-lg p-3 border border-gray-700 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-300">Network & ISP Information</h3>
                   <Globe className="h-4 w-4 text-blue-400" />
@@ -478,7 +478,7 @@ function App() {
         </Card>
 
         {/* Middle Row - Detailed Metrics and Response Time History */}
-        <div className="col-span-8">
+        <div className="col-span-1 lg:col-span-8">
           <Card className="bg-gray-800 border-gray-700 shadow-lg h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-4">
               <div>
@@ -509,7 +509,7 @@ function App() {
               </div>
             </CardHeader>
             <CardContent className="py-1 px-4">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Response Times */}
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Average</div>
@@ -570,12 +570,12 @@ function App() {
               </div>
 
               {/* Response Time Chart */}
-              <div className="mt-1 h-[150px] w-full">
+              <div className="mt-1 h-[120px] md:h-[150px] w-full">
                 {chartData.length > 0 && !isLoading ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={chartData}
-                      margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
+                      margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                       <XAxis
@@ -588,7 +588,7 @@ function App() {
                         stroke="#9CA3AF"
                         tick={{ fill: '#9CA3AF', fontSize: 10 }}
                         tickLine={{ stroke: '#4B5563' }}
-                        width={25}
+                        width={30}
                       />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F9FAFB' }}
@@ -618,7 +618,7 @@ function App() {
         </div>
 
         {/* Right Column - Status and Host Management */}
-        <div className="col-span-4">
+        <div className="col-span-1 lg:col-span-4">
           <div className="grid grid-cols-1 gap-4 h-full">
             {/* Host Management */}
             <Card className="bg-gray-800 border-gray-700 shadow-lg flex-1 flex flex-col">
