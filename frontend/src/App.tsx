@@ -387,34 +387,32 @@ function App() {
           <CardContent className="py-1 px-3">
             <div className="grid grid-cols-12 gap-4">
               {/* Reliability Stats */}
-              <div className="col-span-3 bg-gray-850 rounded-lg p-1.5 border border-gray-700">
-                <div className="flex items-center justify-between mb-0.5">
-                  <h3 className="text-xs font-medium text-gray-300">Reliability</h3>
-                  <Activity className="h-3 w-3 text-blue-400" />
+              <div className="col-span-3 bg-gray-850 rounded-lg p-3 border border-gray-700 h-full flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-gray-300">Reliability</h3>
+                  <Activity className="h-4 w-4 text-blue-400" />
                 </div>
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <div className="text-2xl font-bold text-white">
-                      {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(1)}%` : '--'}
-                    </div>
-                    <div className="flex items-center space-x-1 mt-1">
-                      <div className={`w-2 h-2 rounded-full ${reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityColor(reliabilityStats.uptime_percentage) : 'bg-gray-300'}`}></div>
-                      <span className="text-xs text-gray-400">
-                        {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityStatus(reliabilityStats.uptime_percentage) : 'Loading...'}
-                      </span>
-                    </div>
+                <div className="text-center flex-1 flex flex-col justify-center">
+                  <div className="text-4xl font-bold text-white mb-2">
+                    {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(1)}%` : '--'}
+                  </div>
+                  <div className="flex items-center justify-center space-x-2 mb-6">
+                    <div className={`w-3 h-3 rounded-full ${reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityColor(reliabilityStats.uptime_percentage) : 'bg-gray-300'}`}></div>
+                    <span className="text-base font-medium text-gray-300">
+                      {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityStatus(reliabilityStats.uptime_percentage) : 'Loading...'}
+                    </span>
                   </div>
                 </div>
-                <div className="mt-1 space-y-0.5 text-xs">
-                  <div className="flex justify-between">
+                <div className="space-y-3 text-sm mt-auto">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-400">Avg Response</span>
-                    <span className="font-medium text-white">
+                    <span className="font-semibold text-white">
                       {reliabilityStats && reliabilityStats.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(1)}ms` : '--'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-400">Packet Loss</span>
-                    <span className="font-medium text-white">
+                    <span className="font-semibold text-white">
                       {reliabilityStats && reliabilityStats.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
                     </span>
                   </div>
