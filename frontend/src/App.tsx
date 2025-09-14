@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, startTransition } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
 import { Badge } from './components/ui/badge'
 import { Button } from './components/ui/button'
@@ -33,6 +33,9 @@ interface ReliabilityStats {
 
 interface ISPInfo {
   provider: string
+  ip?: string
+  city?: string
+  country?: string
 }
 
 // WebSocket interface removed
@@ -53,7 +56,7 @@ function App() {
   const [pingData, setPingData] = useState<PingMetric[]>([])
   const [reliabilityStats, setReliabilityStats] = useState<ReliabilityStats | null>(null)
   const [ispInfo, setIspInfo] = useState<ISPInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [monitoringActive, setMonitoringActive] = useState(false)
   const [monitoredHosts, setMonitoredHosts] = useState<string[]>([])
@@ -61,20 +64,38 @@ function App() {
   const [showHostManager, setShowHostManager] = useState(false)
   const [selectedHost, setSelectedHost] = useState<string>('8.8.8.8')
   const [timeRange, setTimeRange] = useState<'10m' | '1hr' | '5hr'>('10m')
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // WebSocket connection and message handling removed
 
-  const fetchData = async () => {
+  const debouncedFetchData = async () => {
+    // Prevent multiple simultaneous calls
+    if (isLoading) {
+      return
+    }
+
+    // Clear any existing timeout
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current)
+    }
+
+    // Set a new timeout to debounce the fetch
+    fetchTimeoutRef.current = setTimeout(async () => {
+      await fetchDataInternal()
+    }, 100)
+  }
+
+  const fetchDataInternal = async () => {
     try {
       setIsLoading(true)
-      
+
       // Add timeout to prevent hanging requests
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
-      
+
       // Fetch ping metrics based on selected time range
       let minutes = 60; // Default to 1 hour
-      
+
       if (timeRange === '10m') {
         minutes = 10;
       } else if (timeRange === '1hr') {
@@ -82,21 +103,18 @@ function App() {
       } else if (timeRange === '5hr') {
         minutes = 300;
       }
-      
+
       // Get the API base URL
       const apiBaseUrl = getApiBaseUrl()
-      
+
       const hostParam = selectedHost ? `&host=${selectedHost}` : '';
-      const metricsResponse = await fetch(`${apiBaseUrl}/ping-metrics/time-range/?minutes=${minutes}${hostParam}&limit=1000`, {
+
+      // Prepare all API calls
+      const metricsPromise = fetch(`${apiBaseUrl}/ping-metrics/time-range/?minutes=${minutes}${hostParam}&limit=1000`, {
         signal: controller.signal
-      })
-      
-      const metrics = await metricsResponse.json()
-      // Ensure pingData is always an array
-      setPingData(Array.isArray(metrics) ? metrics : [])
+      }).then(res => res.json())
 
       // Fetch reliability statistics based on selected time range
-      // For 10m option, use minutes parameter directly instead of converting to hours
       let statsUrl;
       if (timeRange === '10m') {
         statsUrl = `${apiBaseUrl}/ping-metrics/hosts/${selectedHost}/summary?minutes=${minutes}`;
@@ -105,36 +123,43 @@ function App() {
         const hours = Math.ceil(minutes / 60);
         statsUrl = `${apiBaseUrl}/ping-metrics/hosts/${selectedHost}/summary?hours=${hours}`;
       }
-      
-      const statsResponse = await fetch(statsUrl, {
-        signal: controller.signal
-      })
-      const stats = await statsResponse.json()
-      setReliabilityStats(stats)
 
-      // Fetch ISP information
-      const ispResponse = await fetch(`${apiBaseUrl}/ping-metrics/isp-info/`, {
+      const statsPromise = fetch(statsUrl, {
         signal: controller.signal
-      })
-      const ispData = await ispResponse.json()
-      setIspInfo(ispData)
+      }).then(res => res.json())
 
-      // Fetch monitoring status
-      const statusResponse = await fetch(`${apiBaseUrl}/ping-metrics/monitoring/status`, {
+      const ispPromise = fetch(`${apiBaseUrl}/ping-metrics/isp-info/`, {
         signal: controller.signal
-      })
-      const statusData = await statusResponse.json()
-      setMonitoringActive(statusData.monitoring_active)
+      }).then(res => res.json())
 
-      // Fetch monitored hosts
-      const hostsResponse = await fetch(`${apiBaseUrl}/ping-metrics/hosts`, {
+      const statusPromise = fetch(`${apiBaseUrl}/ping-metrics/monitoring/status`, {
         signal: controller.signal
+      }).then(res => res.json())
+
+      const hostsPromise = fetch(`${apiBaseUrl}/ping-metrics/hosts`, {
+        signal: controller.signal
+      }).then(res => res.json())
+
+      // Wait for all API calls to complete
+      const [metrics, stats, ispData, statusData, hostsData] = await Promise.all([
+        metricsPromise,
+        statsPromise,
+        ispPromise,
+        statusPromise,
+        hostsPromise
+      ])
+
+      // Batch all state updates together to prevent multiple re-renders
+      startTransition(() => {
+        setPingData(Array.isArray(metrics) ? metrics : [])
+        setReliabilityStats(stats)
+        setIspInfo(ispData)
+        setMonitoringActive(statusData.monitoring_active)
+        setMonitoredHosts(hostsData.active_monitoring_hosts || [])
+        setLastUpdate(new Date())
       })
-      const hostsData = await hostsResponse.json()
-      setMonitoredHosts(hostsData.active_monitoring_hosts || [])
-      
+
       clearTimeout(timeoutId)
-      setLastUpdate(new Date())
     } catch (error) {
       console.error('Failed to fetch data:', error)
       // Show error state instead of using mock data
@@ -160,18 +185,18 @@ function App() {
     try {
       // Get the API base URL
       const apiBaseUrl = getApiBaseUrl()
-      
-      const endpoint = monitoringActive ? 
-        `${apiBaseUrl}/ping-metrics/monitoring/stop` : 
+
+      const endpoint = monitoringActive ?
+        `${apiBaseUrl}/ping-metrics/monitoring/stop` :
         `${apiBaseUrl}/ping-metrics/monitoring/start`;
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
       });
-      
+
       if (response.ok) {
         setMonitoringActive(!monitoringActive);
-        fetchData(); // Refresh data
+        debouncedFetchData(); // Refresh data
       }
     } catch (error) {
       console.error('Failed to toggle monitoring:', error);
@@ -180,19 +205,19 @@ function App() {
 
   const addHost = async () => {
     if (!newHost.trim()) return
-    
+
     try {
       // Get the API base URL
       const apiBaseUrl = getApiBaseUrl()
-      
+
       const host = encodeURIComponent(newHost.trim())
       const response = await fetch(`${apiBaseUrl}/ping-metrics/hosts/${host}/add`, {
         method: 'POST'
       })
-      
+
       if (response.ok) {
         setNewHost('')
-        fetchData() // Refresh data
+        debouncedFetchData() // Refresh data
       }
     } catch (error) {
       console.error('Error adding host:', error)
@@ -203,13 +228,13 @@ function App() {
     try {
       // Get the API base URL
       const apiBaseUrl = getApiBaseUrl()
-      
+
       const response = await fetch(`${apiBaseUrl}/ping-metrics/hosts/${host}`, {
         method: 'DELETE',
       })
-      
+
       if (response.ok) {
-        fetchData() // Refresh data
+        debouncedFetchData() // Refresh data
       }
     } catch (error) {
       console.error('Error removing host:', error)
@@ -217,22 +242,17 @@ function App() {
   }
 
   useEffect(() => {
-    fetchData()
-    
+    debouncedFetchData()
+
     // Refresh data every 30 seconds (for historical data from API)
     const interval = setInterval(() => {
-      fetchData()
+      debouncedFetchData()
     }, 30000)
-    
+
     return () => {
       clearInterval(interval)
     }
-  }, [])
-
-  // Fetch data when time range or selected host changes
-  useEffect(() => {
-    fetchData()
-  }, [timeRange, selectedHost])
+  }, [timeRange, selectedHost]) // Combined dependencies to avoid duplicate calls
 
   // Group ping data by host and time range
 
@@ -241,7 +261,7 @@ function App() {
     // Calculate the cutoff time based on selected time range
     const now = new Date()
     let cutoffTime: Date
-    
+
     switch (timeRange) {
       case '10m':
         cutoffTime = new Date(now.getTime() - 10 * 60 * 1000) // 10 minutes ago
@@ -262,15 +282,15 @@ function App() {
         if (metric.response_time_ms === null || metric.target_host !== selectedHost) {
           return false
         }
-        
+
         // Filter by time range
         const metricTime = new Date(metric.timestamp)
         return metricTime >= cutoffTime
       })
       .map(metric => ({
-        time: new Date(metric.timestamp).toLocaleTimeString('en-US', { 
-          hour12: false, 
-          hour: '2-digit', 
+        time: new Date(metric.timestamp).toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
         }),
@@ -293,12 +313,7 @@ function App() {
     return 'Poor'
   }
 
-  // Function to manually refresh data
-  const refreshData = () => {
-    fetchReliabilityStats();
-    fetchIspInfo();
-    fetchPingData();
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-3">
@@ -324,16 +339,16 @@ function App() {
                 Last updated: {lastUpdate ? lastUpdate.toLocaleString() : '--'}
               </div>
               <div className="flex items-center space-x-1.5">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
-                  onClick={fetchData}
+                  onClick={debouncedFetchData}
                 >
                   <RefreshCw className="h-4 w-4 mr-1" /> Refresh
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
                   onClick={toggleMonitoring}
@@ -367,9 +382,6 @@ function App() {
                   <option key={host} value={host}>{host}</option>
                 ))}
               </select>
-              <Button onClick={refreshData} variant="outline" size="icon" className="h-7 w-7">
-                <RefreshCw className="h-3 w-3" />
-              </Button>
             </div>
           </CardHeader>
           <CardContent className="py-1 px-3">
@@ -408,73 +420,58 @@ function App() {
                   </div>
                 </div>
               </div>
-              
-              {/* ISP Information */}
-              <div className="col-span-3 bg-gray-850 rounded-lg p-1.5 border border-gray-700">
-                <div className="flex items-center justify-between mb-0.5">
-                  <h3 className="text-xs font-medium text-gray-300">ISP Information</h3>
-                  <Globe className="h-3 w-3 text-blue-400" />
+
+              {/* Expanded ISP Information */}
+              <div className="col-span-9 bg-gray-850 rounded-lg p-3 border border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-gray-300">Network & ISP Information</h3>
+                  <Globe className="h-4 w-4 text-blue-400" />
                 </div>
-                <div className="flex items-center">
-                  <div className="w-full">
-                    <div className="text-xs text-gray-400">Provider</div>
-                    <div className="text-base font-semibold text-white break-words">{ispInfo?.provider || '--'}</div>
-                  </div>
-                </div>
-                <div className="mt-1">
-                  <div className="text-xs text-gray-400 mb-1">Connection Status</div>
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span className="text-xs text-white">Active</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Ping Response Time Mini Chart */}
-              <div className="col-span-6 bg-gray-850 rounded-lg p-2 border border-gray-700">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-medium text-gray-300">Response Time</h3>
-                </div>
-                <div className="h-[80px] w-full">
-                  {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={chartData.slice(-20)}
-                        margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
-                      >
-                        <YAxis domain={['dataMin', 'dataMax']} hide={true} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F9FAFB' }}
-                          labelStyle={{ color: '#F9FAFB' }}
-                          itemStyle={{ color: '#3B82F6' }}
-                          formatter={(value) => [`${value} ms`, 'Response Time']}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="responseTime" 
-                          stroke="#3B82F6" 
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ fill: '#3B82F6', r: 3, stroke: '#1F2937', strokeWidth: 1 }}
-                          name="Response Time"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400 text-xs">
-                      No data available
-                    </div>
-                  )}
-                </div>
-                <div className="mt-0.5 flex justify-between items-center text-xs">
+
+                <div className="grid grid-cols-3 gap-4">
+                  {/* ISP Provider */}
                   <div>
-                    <span className="text-gray-400">Current: </span>
-                    <span className="text-white font-medium">
-                      {chartData.length > 0 ? `${chartData[chartData.length - 1].responseTime.toFixed(1)}ms` : '--'}
-                    </span>
+                    <div className="text-xs text-gray-400 mb-1">Internet Service Provider</div>
+                    <div className="text-lg font-semibold text-white break-words">{ispInfo?.provider || '--'}</div>
                   </div>
-                  <div className="text-gray-400">
-                    Host: {selectedHost}
+
+                  {/* IP Address */}
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Public IP Address</div>
+                    <div className="text-lg font-semibold text-white">{ispInfo?.ip || '--'}</div>
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Location</div>
+                    <div className="text-lg font-semibold text-white">
+                      {ispInfo?.city && ispInfo?.country ? `${ispInfo.city}, ${ispInfo.country}` : '--'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mt-4">
+                  {/* Connection Status */}
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Connection Status</div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      <span className="text-sm text-white font-medium">Active</span>
+                    </div>
+                  </div>
+
+                  {/* Current Response Time */}
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Current Response Time</div>
+                    <div className="text-lg font-semibold text-blue-400">
+                      {chartData.length > 0 ? `${chartData[chartData.length - 1].responseTime.toFixed(1)}ms` : '--'}
+                    </div>
+                  </div>
+
+                  {/* Current Host */}
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Monitoring Host</div>
+                    <div className="text-lg font-semibold text-white">{selectedHost}</div>
                   </div>
                 </div>
               </div>
@@ -522,28 +519,28 @@ function App() {
                     {reliabilityStats?.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Median</div>
                   <div className="text-base font-bold text-blue-400">
                     {reliabilityStats?.median_response_time !== undefined ? `${reliabilityStats.median_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Min</div>
                   <div className="text-base font-bold text-green-400">
                     {reliabilityStats?.min_response_time !== undefined ? `${reliabilityStats.min_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Max</div>
                   <div className="text-base font-bold text-amber-400">
                     {reliabilityStats?.max_response_time !== undefined ? `${reliabilityStats.max_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                
+
                 {/* Reliability Metrics */}
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Total Pings</div>
@@ -551,21 +548,21 @@ function App() {
                     {reliabilityStats?.total_pings !== undefined ? reliabilityStats.total_pings.toLocaleString() : '--'}
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Packet Losses</div>
                   <div className="text-base font-bold text-red-400">
                     {reliabilityStats?.packet_losses !== undefined ? reliabilityStats.packet_losses.toLocaleString() : '--'}
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">Loss Rate</div>
                   <div className="text-base font-bold text-white">
                     {reliabilityStats?.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
                   </div>
                 </div>
-                
+
                 <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
                   <div className="text-xs font-medium text-gray-400">95th Percentile</div>
                   <div className="text-base font-bold text-purple-400">
@@ -573,38 +570,38 @@ function App() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Response Time Chart */}
               <div className="mt-1 h-[150px] w-full">
-                {chartData.length > 0 ? (
+                {chartData.length > 0 && !isLoading ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={chartData}
                       margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis 
-                        dataKey="time" 
+                      <XAxis
+                        dataKey="time"
                         stroke="#9CA3AF"
                         tick={{ fill: '#9CA3AF', fontSize: 10 }}
                         tickLine={{ stroke: '#4B5563' }}
                       />
-                      <YAxis 
+                      <YAxis
                         stroke="#9CA3AF"
                         tick={{ fill: '#9CA3AF', fontSize: 10 }}
                         tickLine={{ stroke: '#4B5563' }}
                         width={25}
                       />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F9FAFB' }}
                         labelStyle={{ color: '#F9FAFB' }}
                         itemStyle={{ color: '#3B82F6' }}
                         formatter={(value) => [`${value} ms`, 'Response Time']}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="responseTime" 
-                        stroke="#3B82F6" 
+                      <Line
+                        type="monotone"
+                        dataKey="responseTime"
+                        stroke="#3B82F6"
                         strokeWidth={2}
                         dot={false}
                         activeDot={{ fill: '#3B82F6', r: 3, stroke: '#1F2937', strokeWidth: 1 }}
@@ -614,7 +611,7 @@ function App() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-400 text-xs">
-                    No data available
+                    {isLoading ? 'Loading...' : 'No data available'}
                   </div>
                 )}
               </div>
@@ -651,8 +648,8 @@ function App() {
                         className="flex-1 px-3 py-1.5 text-sm border border-gray-600 rounded-md bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                         onKeyPress={(e) => e.key === 'Enter' && addHost()}
                       />
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         className="h-8 px-3 text-sm bg-blue-500 hover:bg-blue-600 text-white"
                         onClick={addHost}
                       >
@@ -661,7 +658,7 @@ function App() {
                     </div>
                   </div>
                 )}
-                
+
                 <div className="overflow-x-auto overflow-y-auto flex-1 rounded-lg border border-gray-700 bg-gray-900/50 shadow-md">
                   <table className="w-full caption-bottom text-sm">
                     <thead>
@@ -677,8 +674,8 @@ function App() {
                       {monitoredHosts.length > 0 ? (
                         <>
                           {monitoredHosts.map((host, index) => (
-                            <tr 
-                              key={host} 
+                            <tr
+                              key={host}
                               className={`border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors ${index % 2 === 0 ? 'bg-gray-800/10' : ''}`}
                             >
                               <td className="p-2 align-middle">
@@ -711,8 +708,8 @@ function App() {
                           ))}
                           {/* Add placeholder rows to ensure minimum 5 rows */}
                           {monitoredHosts.length < 5 && Array.from({ length: 5 - monitoredHosts.length }).map((_, index) => (
-                            <tr 
-                              key={`placeholder-${index}`} 
+                            <tr
+                              key={`placeholder-${index}`}
                               className={`border-b border-gray-700/50 ${(monitoredHosts.length + index) % 2 === 0 ? 'bg-gray-800/10' : ''}`}
                             >
                               <td className="p-2 align-middle">
@@ -748,8 +745,8 @@ function App() {
                           </tr>
                           {/* Add placeholder rows to ensure minimum 5 rows when no hosts */}
                           {Array.from({ length: 4 }).map((_, index) => (
-                            <tr 
-                              key={`empty-placeholder-${index}`} 
+                            <tr
+                              key={`empty-placeholder-${index}`}
                               className={`border-b border-gray-700/50 ${index % 2 === 0 ? 'bg-gray-800/10' : ''}`}
                             >
                               <td className="p-2 align-middle">
