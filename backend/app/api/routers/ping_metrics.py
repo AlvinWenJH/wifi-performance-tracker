@@ -317,23 +317,81 @@ async def stop_monitoring():
         raise HTTPException(status_code=500, detail="Failed to stop monitoring")
 
 
+# Simple in-memory cache for ISP info
+_isp_cache = {"data": None, "timestamp": 0}
+ISP_CACHE_TTL = 3600  # Cache for 1 hour
+
+
 @router.get("/isp-info/")
 async def get_isp_info():
-    """Get ISP provider information only"""
+    """Get ISP provider information with caching to avoid rate limits"""
+    import time
+
+    # Check cache first
+    current_time = time.time()
+    if (
+        _isp_cache["data"] is not None
+        and current_time - _isp_cache["timestamp"] < ISP_CACHE_TTL
+    ):
+        logger.info("Returning cached ISP info")
+        return _isp_cache["data"]
+
     try:
-        # Return only the provider name
-        response = requests.get("https://ipinfo.io/json", timeout=5)
+        # Make API request with rate limit handling
+        response = requests.get("https://ipinfo.io/json", timeout=10)
+
+        if response.status_code == 429:
+            # Rate limited - return cached data if available, otherwise fallback
+            if _isp_cache["data"] is not None:
+                logger.warning("Rate limited, returning cached ISP info")
+                return _isp_cache["data"]
+            else:
+                logger.warning("Rate limited and no cached data available")
+                return {
+                    "ip": "Unknown",
+                    "hostname": "Unknown",
+                    "city": "Unknown",
+                    "region": "Unknown",
+                    "country": "Unknown",
+                    "provider": "Rate limited - try again later",
+                }
+
+        response.raise_for_status()
         data = response.json()
-        return {
-            "ip": data.get("ip"),
-            "hostname": data.get("hostname"),
-            "city": data.get("city"),
-            "region": data.get("region"),
-            "country": data.get("country"),
-            "provider": data.get("org"),  # This usually contains ISP/ASN info
+
+        # Cache the successful response
+        isp_info = {
+            "ip": data.get("ip", "Unknown"),
+            "hostname": data.get("hostname", "Unknown"),
+            "city": data.get("city", "Unknown"),
+            "region": data.get("region", "Unknown"),
+            "country": data.get("country", "Unknown"),
+            "provider": data.get(
+                "org", "Unknown"
+            ),  # This usually contains ISP/ASN info
         }
+
+        _isp_cache["data"] = isp_info
+        _isp_cache["timestamp"] = current_time
+
+        logger.info("Successfully retrieved and cached ISP info")
+        return isp_info
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request failed to get ISP info: {e}")
+        # Return cached data if available
+        if _isp_cache["data"] is not None:
+            logger.info("Request failed, returning cached ISP info")
+            return _isp_cache["data"]
+        raise HTTPException(
+            status_code=503, detail="ISP information service temporarily unavailable"
+        )
     except Exception as e:
-        logger.error(f"Failed to get ISP info: {e}")
+        logger.error(f"Unexpected error getting ISP info: {e}")
+        # Return cached data if available
+        if _isp_cache["data"] is not None:
+            logger.info("Error occurred, returning cached ISP info")
+            return _isp_cache["data"]
         raise HTTPException(
             status_code=500, detail="Failed to retrieve ISP information"
         )

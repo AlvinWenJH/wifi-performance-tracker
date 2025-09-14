@@ -144,7 +144,9 @@ class PingMetricsCRUD:
 
                 # Calculate uptime percentage
                 if summary["total_pings"] > 0:
-                    summary["uptime_percentage"] = 100 - summary["packet_loss_rate"]
+                    summary["uptime_percentage"] = (
+                        100 - summary["packet_loss_rate"] * 100
+                    )
                 else:
                     summary["uptime_percentage"] = 0
 
