@@ -1,0 +1,20 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "WiFi Performance Tracker Backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "ping3>=5.1.5",
+    "psycopg2-binary>=2.9.10",
+    "asyncpg>=0.29.0",
+    "sqlalchemy>=2.0.23",
+    "pydantic>=2.5.0",
+    "python-multipart>=0.0.6",
+    "websockets>=12.0",
+    "asyncio>=3.4.3",
+    "python-dotenv>=1.0.0",
+    "requests",
+]
