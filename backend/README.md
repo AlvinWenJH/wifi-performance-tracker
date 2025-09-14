@@ -301,7 +301,8 @@ Get real-time ping results from the monitoring service.
 Get aggregated ping statistics.
 
 **Query Parameters:**
-- `hours` (int, 1-168): Hours of data to analyze (default: 24)
+- `hours` (int, 1-168): Hours of data to analyze (default: 24 if neither hours nor minutes is provided)
+- `minutes` (int, 1-10080): Minutes of data to analyze (alternative to hours parameter)
 - `host` (string, optional): Filter by specific host
 
 **Response:**
@@ -345,6 +346,7 @@ Get comprehensive summary for a specific host.
 {
   "host": "8.8.8.8",
   "hours_analyzed": 24,
+  "minutes_analyzed": 1440,
   "total_pings": 86400,
   "avg_response_time": 18.5,
   "min_response_time": 8.2,

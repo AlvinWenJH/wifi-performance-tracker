@@ -95,8 +95,18 @@ function App() {
       // Ensure pingData is always an array
       setPingData(Array.isArray(metrics) ? metrics : [])
 
-      // Fetch reliability statistics for 8.8.8.8 (Google DNS)
-      const statsResponse = await fetch(`${apiBaseUrl}/ping-metrics/hosts/8.8.8.8/summary?hours=1`, {
+      // Fetch reliability statistics based on selected time range
+      // For 10m option, use minutes parameter directly instead of converting to hours
+      let statsUrl;
+      if (timeRange === '10m') {
+        statsUrl = `${apiBaseUrl}/ping-metrics/hosts/${selectedHost}/summary?minutes=${minutes}`;
+      } else {
+        // For 1hr and 5hr options, convert minutes to hours
+        const hours = Math.ceil(minutes / 60);
+        statsUrl = `${apiBaseUrl}/ping-metrics/hosts/${selectedHost}/summary?hours=${hours}`;
+      }
+      
+      const statsResponse = await fetch(statsUrl, {
         signal: controller.signal
       })
       const stats = await statsResponse.json()
@@ -283,416 +293,494 @@ function App() {
     return 'Poor'
   }
 
+  // Function to manually refresh data
+  const refreshData = () => {
+    fetchReliabilityStats();
+    fetchIspInfo();
+    fetchPingData();
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-900 text-white p-3">
       {/* Header */}
-      <header className="mb-8">
+      <header className="mb-4 sticky top-0 z-10 -mx-3 px-3 py-3 border-b border-gray-700 bg-gray-800/95 backdrop-blur supports-[backdrop-filter]:bg-gray-800/75">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <Wifi className="h-6 w-6 text-white" />
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 bg-blue-600 rounded-lg">
+              <Wifi className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">WiFi Performance Tracker</h1>
-              <p className="text-gray-600">Real-time network monitoring dashboard</p>
+              <h1 className="text-2xl font-bold text-white">WiFi Performance Tracker</h1>
+              <p className="text-sm text-gray-400">Real-time network monitoring dashboard</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-500">
-              Last updated: {lastUpdate.toLocaleTimeString()}
+          <div className="flex flex-col items-end space-y-1">
+            <div className="flex items-center space-x-1.5">
+              <div className={`w-3 h-3 rounded-full ${monitoringActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+              <span className="text-sm font-medium text-white">{monitoringActive ? 'Monitoring Active' : 'Monitoring Inactive'}</span>
             </div>
-            <Button onClick={() => {
-              setIsLoading(true);
-              fetchData();
-            }} disabled={isLoading} size="sm">
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex items-center space-x-1.5">
+              <div className="text-xs text-gray-400">
+                Last updated: {lastUpdate ? lastUpdate.toLocaleString() : '--'}
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+                  onClick={fetchData}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+                  onClick={toggleMonitoring}
+                >
+                  {monitoringActive ? 'Stop' : 'Start'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Reliability Score Card */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overall Reliability</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4">
-              <div className="flex-1">
-                <div className="text-2xl font-bold">
-                  {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(1)}%` : '--'}
-                </div>
-                <div className="flex items-center space-x-2 mt-1">
-                  <div className={`w-2 h-2 rounded-full ${reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityColor(reliabilityStats.uptime_percentage) : 'bg-gray-300'}`}></div>
-                  <span className="text-xs text-muted-foreground">
-                    {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityStatus(reliabilityStats.uptime_percentage) : 'Loading...'}
-                  </span>
-                </div>
-              </div>
+      {/* Main Dashboard - Single Screen Layout */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* Top Row - Main Performance Card */}
+        <Card className="col-span-12 bg-gray-800 border-gray-700 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-3">
+            <div>
+              <CardTitle className="text-base font-medium">Network Performance Dashboard</CardTitle>
+              <CardDescription className="text-xs text-gray-400">
+                Real-time network monitoring and performance analysis
+              </CardDescription>
             </div>
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Avg Response Time</span>
-                <span className="font-medium">
-                  {reliabilityStats && reliabilityStats.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(1)}ms` : '--'}
-                </span>
+            <div className="flex items-center space-x-1.5">
+              <select
+                className="text-xs border border-gray-600 rounded p-1 bg-gray-700 text-white"
+                value={selectedHost}
+                onChange={(e) => setSelectedHost(e.target.value)}
+              >
+                {monitoredHosts.map(host => (
+                  <option key={host} value={host}>{host}</option>
+                ))}
+              </select>
+              <Button onClick={refreshData} variant="outline" size="icon" className="h-7 w-7">
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="py-1 px-3">
+            <div className="grid grid-cols-12 gap-4">
+              {/* Reliability Stats */}
+              <div className="col-span-3 bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                <div className="flex items-center justify-between mb-0.5">
+                  <h3 className="text-xs font-medium text-gray-300">Reliability</h3>
+                  <Activity className="h-3 w-3 text-blue-400" />
+                </div>
+                <div className="flex items-center">
+                  <div className="flex-1">
+                    <div className="text-2xl font-bold text-white">
+                      {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(1)}%` : '--'}
+                    </div>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityColor(reliabilityStats.uptime_percentage) : 'bg-gray-300'}`}></div>
+                      <span className="text-xs text-gray-400">
+                        {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityStatus(reliabilityStats.uptime_percentage) : 'Loading...'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-1 space-y-0.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Avg Response</span>
+                    <span className="font-medium text-white">
+                      {reliabilityStats && reliabilityStats.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(1)}ms` : '--'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Packet Loss</span>
+                    <span className="font-medium text-white">
+                      {reliabilityStats && reliabilityStats.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Packet Loss</span>
-                <span className="font-medium">
-                  {reliabilityStats && reliabilityStats.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
-                </span>
+              
+              {/* ISP Information */}
+              <div className="col-span-3 bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                <div className="flex items-center justify-between mb-0.5">
+                  <h3 className="text-xs font-medium text-gray-300">ISP Information</h3>
+                  <Globe className="h-3 w-3 text-blue-400" />
+                </div>
+                <div className="flex items-center">
+                  <div className="w-full">
+                    <div className="text-xs text-gray-400">Provider</div>
+                    <div className="text-base font-semibold text-white break-words">{ispInfo?.provider || '--'}</div>
+                  </div>
+                </div>
+                <div className="mt-1">
+                  <div className="text-xs text-gray-400 mb-1">Connection Status</div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="text-xs text-white">Active</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Ping Response Time Mini Chart */}
+              <div className="col-span-6 bg-gray-850 rounded-lg p-2 border border-gray-700">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-medium text-gray-300">Response Time</h3>
+                </div>
+                <div className="h-[80px] w-full">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={chartData.slice(-20)}
+                        margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
+                      >
+                        <YAxis domain={['dataMin', 'dataMax']} hide={true} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F9FAFB' }}
+                          labelStyle={{ color: '#F9FAFB' }}
+                          itemStyle={{ color: '#3B82F6' }}
+                          formatter={(value) => [`${value} ms`, 'Response Time']}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="responseTime" 
+                          stroke="#3B82F6" 
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ fill: '#3B82F6', r: 3, stroke: '#1F2937', strokeWidth: 1 }}
+                          name="Response Time"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 text-xs">
+                      No data available
+                    </div>
+                  )}
+                </div>
+                <div className="mt-0.5 flex justify-between items-center text-xs">
+                  <div>
+                    <span className="text-gray-400">Current: </span>
+                    <span className="text-white font-medium">
+                      {chartData.length > 0 ? `${chartData[chartData.length - 1].responseTime.toFixed(1)}ms` : '--'}
+                    </span>
+                  </div>
+                  <div className="text-gray-400">
+                    Host: {selectedHost}
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* ISP Information Card */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ISP Information</CardTitle>
-            <Globe className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center">
+        {/* Middle Row - Detailed Metrics and Response Time History */}
+        <div className="col-span-8">
+          <Card className="bg-gray-800 border-gray-700 shadow-lg h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-4">
               <div>
-                <div className="text-sm text-muted-foreground">Provider</div>
-                <div className="text-2xl font-semibold">{ispInfo?.provider || '--'}</div>
+                <CardTitle className="text-sm">Detailed Metrics</CardTitle>
+                <CardDescription className="text-xs">
+                  Statistics for {selectedHost} over the past {timeRange === '10m' ? '10 minutes' : timeRange === '1hr' ? '1 hour' : '5 hours'}
+                </CardDescription>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Detailed Ping Metrics Card */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Detailed Ping Metrics</CardTitle>
-          <CardDescription>
-            Comprehensive ping statistics for {reliabilityStats?.host || '8.8.8.8'} over the last {reliabilityStats?.hours_analyzed || 1} hour(s)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Response Times</div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-muted-foreground">Average</div>
-                  <div className="text-lg font-bold text-blue-600">
+              <div className="flex border border-gray-600 rounded overflow-hidden">
+                <button
+                  className={`px-1 py-0.5 text-xs ${timeRange === '10m' ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300'}`}
+                  onClick={() => setTimeRange('10m')}
+                >
+                  10m
+                </button>
+                <button
+                  className={`px-1 py-0.5 text-xs ${timeRange === '1hr' ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300'}`}
+                  onClick={() => setTimeRange('1hr')}
+                >
+                  1h
+                </button>
+                <button
+                  className={`px-1 py-0.5 text-xs ${timeRange === '5hr' ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300'}`}
+                  onClick={() => setTimeRange('5hr')}
+                >
+                  5h
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="py-1 px-4">
+              <div className="grid grid-cols-4 gap-4">
+                {/* Response Times */}
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Average</div>
+                  <div className="text-base font-bold text-blue-400">
                     {reliabilityStats?.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Median</div>
-                  <div className="text-lg font-bold text-blue-600">
+                
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Median</div>
+                  <div className="text-base font-bold text-blue-400">
                     {reliabilityStats?.median_response_time !== undefined ? `${reliabilityStats.median_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Minimum</div>
-                  <div className="text-lg font-bold text-green-600">
+                
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Min</div>
+                  <div className="text-base font-bold text-green-400">
                     {reliabilityStats?.min_response_time !== undefined ? `${reliabilityStats.min_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Maximum</div>
-                  <div className="text-lg font-bold text-amber-600">
+                
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Max</div>
+                  <div className="text-base font-bold text-amber-400">
                     {reliabilityStats?.max_response_time !== undefined ? `${reliabilityStats.max_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Reliability</div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-muted-foreground">Total Pings</div>
-                  <div className="text-lg font-bold">
+                
+                {/* Reliability Metrics */}
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Total Pings</div>
+                  <div className="text-base font-bold text-white">
                     {reliabilityStats?.total_pings !== undefined ? reliabilityStats.total_pings.toLocaleString() : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Packet Losses</div>
-                  <div className="text-lg font-bold text-red-600">
+                
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Packet Losses</div>
+                  <div className="text-base font-bold text-red-400">
                     {reliabilityStats?.packet_losses !== undefined ? reliabilityStats.packet_losses.toLocaleString() : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Loss Rate</div>
-                  <div className="text-lg font-bold">
+                
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">Loss Rate</div>
+                  <div className="text-base font-bold text-white">
                     {reliabilityStats?.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Uptime</div>
-                  <div className="text-lg font-bold text-green-600">
-                    {reliabilityStats?.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(2)}%` : '--'}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Additional Metrics</div>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <div className="text-xs text-muted-foreground">95th Percentile</div>
-                  <div className="text-lg font-bold text-purple-600">
+                
+                <div className="bg-gray-850 rounded-lg p-1.5 border border-gray-700">
+                  <div className="text-xs font-medium text-gray-400">95th Percentile</div>
+                  <div className="text-base font-bold text-purple-400">
                     {reliabilityStats?.p95_response_time !== undefined ? `${reliabilityStats.p95_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Monitoring Period</div>
-                  <div className="text-sm">
-                    {reliabilityStats?.first_ping && reliabilityStats?.last_ping ? (
-                      <>
-                        <div>From: {new Date(reliabilityStats.first_ping).toLocaleString()}</div>
-                        <div>To: {new Date(reliabilityStats.last_ping).toLocaleString()}</div>
-                      </>
-                    ) : '--'}
-                  </div>
-                </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Ping Response Time Chart */}
-      <Card className="mb-8">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle>Ping Response Time ({timeRange === '10m' ? 'Last 10 Minutes' : timeRange === '1hr' ? 'Last Hour' : 'Last 5 Hours'})</CardTitle>
-             <CardDescription>
-               Real-time ping response times for {selectedHost}
-             </CardDescription>
-          </div>
-          <div className="flex items-center space-x-4">
-             <div className="flex items-center space-x-2">
-               <span className="text-sm text-muted-foreground">Host:</span>
-               <select
-                 className="text-sm border rounded p-1"
-                 value={selectedHost}
-                 onChange={(e) => setSelectedHost(e.target.value)}
-               >
-                 {monitoredHosts.map(host => (
-                   <option key={host} value={host}>{host}</option>
-                 ))}
-               </select>
-             </div>
-             <div className="flex items-center space-x-1">
-               <span className="text-sm text-muted-foreground">Time:</span>
-               <div className="flex border rounded overflow-hidden">
-                 <button
-                   className={`px-2 py-1 text-xs ${timeRange === '10m' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
-                   onClick={() => setTimeRange('10m')}
-                 >
-                   10m
-                 </button>
-                 <button
-                   className={`px-2 py-1 text-xs ${timeRange === '1hr' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
-                   onClick={() => setTimeRange('1hr')}
-                 >
-                   1hr
-                 </button>
-                 <button
-                   className={`px-2 py-1 text-xs ${timeRange === '5hr' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
-                   onClick={() => setTimeRange('5hr')}
-                 >
-                   5hr
-                 </button>
-               </div>
-             </div>
-           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart 
-                data={chartData}
-                margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  dataKey="time" 
-                  tick={{ fontSize: 10 }}
-                  tickLine={false}
-                  padding={{ left: 10, right: 10 }}
-                  tickCount={timeRange === '10m' ? 5 : timeRange === '1hr' ? 6 : 10}
-                  label={{
-                    value: `Time (${timeRange})`,
-                    position: 'insideBottomRight',
-                    offset: -5
-                  }}
-                />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                  label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-                  domain={['dataMin - 5', 'dataMax + 5']}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => `Time: ${value}`}
-                  formatter={(value: number) => [`${value !== undefined && value !== null ? value.toFixed(1) : '0.0'}ms`, `${selectedHost} Response Time`]}
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                {reliabilityStats?.avg_response_time !== undefined && (
-                  <svg>
-                    <defs>
-                      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                        <feMerge>
-                          <feMergeNode in="coloredBlur" />
-                          <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                      </filter>
-                    </defs>
-                  </svg>
-                )}
-                <Line 
-                  type="monotone" 
-                  dataKey="responseTime" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
-                  activeDot={{ r: 5, stroke: '#3b82f6', strokeWidth: 2, filter: 'url(#glow)' }}
-                  animationDuration={500}
-                  isAnimationActive={true}
-                  name={`${selectedHost} Response Time`}
-                />
-                {reliabilityStats?.avg_response_time !== undefined && (
-                  <svg>
-                    <line 
-                      x1="0%" 
-                      y1={`${100 - (reliabilityStats.avg_response_time / (reliabilityStats.max_response_time * 1.1)) * 100}%`} 
-                      x2="100%" 
-                      y2={`${100 - (reliabilityStats.avg_response_time / (reliabilityStats.max_response_time * 1.1)) * 100}%`} 
-                      stroke="#3b82f6" 
-                      strokeWidth="1" 
-                      strokeDasharray="5,5" 
-                    />
-                    <text 
-                      x="98%" 
-                      y={`${100 - (reliabilityStats.avg_response_time / (reliabilityStats.max_response_time * 1.1)) * 100 - 5}%`} 
-                      fill="#3b82f6" 
-                      fontSize="10" 
-                      textAnchor="end"
+              
+              {/* Response Time Chart */}
+              <div className="mt-1 h-[150px] w-full">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={chartData}
+                      margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
                     >
-                      Avg: {reliabilityStats.avg_response_time.toFixed(1)}ms
-                    </text>
-                  </svg>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis 
+                        dataKey="time" 
+                        stroke="#9CA3AF"
+                        tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                        tickLine={{ stroke: '#4B5563' }}
+                      />
+                      <YAxis 
+                        stroke="#9CA3AF"
+                        tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                        tickLine={{ stroke: '#4B5563' }}
+                        width={25}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F9FAFB' }}
+                        labelStyle={{ color: '#F9FAFB' }}
+                        itemStyle={{ color: '#3B82F6' }}
+                        formatter={(value) => [`${value} ms`, 'Response Time']}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="responseTime" 
+                        stroke="#3B82F6" 
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ fill: '#3B82F6', r: 3, stroke: '#1F2937', strokeWidth: 1 }}
+                        name="Response Time"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-xs">
+                    No data available
+                  </div>
                 )}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-between text-xs text-muted-foreground mt-2">
-            <div>Min: {reliabilityStats?.min_response_time !== undefined ? `${reliabilityStats.min_response_time.toFixed(1)}ms` : '--'}</div>
-            <div>Max: {reliabilityStats?.max_response_time !== undefined ? `${reliabilityStats.max_response_time.toFixed(1)}ms` : '--'}</div>
-            <div>95th: {reliabilityStats?.p95_response_time !== undefined ? `${reliabilityStats.p95_response_time.toFixed(1)}ms` : '--'}</div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Status Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-muted-foreground">Monitoring Status</div>
-                <div className="flex items-center justify-between mt-1">
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-2 h-2 rounded-full ${monitoringActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    <span className="text-sm font-medium">{monitoringActive ? 'Active' : 'Inactive'}</span>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={toggleMonitoring}
-                  >
-                    {monitoringActive ? 'Stop' : 'Start'}
-                  </Button>
-                </div>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Activity className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs text-muted-foreground">
-                    Polling mode
-                  </span>
-                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        
+            </CardContent>
+          </Card>
+        </div>
 
-        
-        {/* Host Management */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-muted-foreground">Monitored Hosts</div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowHostManager(!showHostManager)}
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Manage
-              </Button>
-            </div>
-            
-            {showHostManager && (
-              <div className="space-y-2 mb-3">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newHost}
-                    onChange={(e) => setNewHost(e.target.value)}
-                    placeholder="Enter host (e.g., 8.8.8.8)"
-                    className="flex-1 px-2 py-1 text-sm border rounded"
-                    onKeyPress={(e) => e.key === 'Enter' && addHost()}
-                  />
-                  <Button size="sm" onClick={addHost}>
-                    Add
-                  </Button>
-                </div>
-              </div>
-            )}
-            
-            <div className="space-y-1">
-              {monitoredHosts.length > 0 ? (
-                monitoredHosts.map((host) => (
-                  <div key={host} className="flex items-center justify-between text-sm">
-                    <span className="font-mono">{host}</span>
-                    {showHostManager && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeHost(host)}
-                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+        {/* Right Column - Status and Host Management */}
+        <div className="col-span-4">
+          <div className="grid grid-cols-1 gap-4 h-full">
+            {/* Host Management */}
+            <Card className="bg-gray-800 border-gray-700 shadow-lg flex-1 flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-4">
+                <CardTitle className="text-sm font-medium">Monitored Hosts</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+                  onClick={() => setShowHostManager(!showHostManager)}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Manage
+                </Button>
+              </CardHeader>
+              <CardContent className="p-2 flex-1 flex flex-col">
+                {showHostManager && (
+                  <div className="mb-3">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={newHost}
+                        onChange={(e) => setNewHost(e.target.value)}
+                        placeholder="Enter host (e.g., 8.8.8.8)"
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-600 rounded-md bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        onKeyPress={(e) => e.key === 'Enter' && addHost()}
+                      />
+                      <Button 
+                        size="sm" 
+                        className="h-8 px-3 text-sm bg-blue-500 hover:bg-blue-600 text-white"
+                        onClick={addHost}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        Add
                       </Button>
-                    )}
+                    </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-xs text-muted-foreground">No hosts being monitored</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+                
+                <div className="overflow-x-auto overflow-y-auto flex-1 rounded-lg border border-gray-700 bg-gray-900/50 shadow-md">
+                  <table className="w-full caption-bottom text-sm">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-gray-800 to-gray-800/80 border-b border-gray-700">
+                        <th className="h-8 px-4 text-left align-middle font-medium text-gray-300 whitespace-nowrap">Host</th>
+                        <th className="h-8 px-4 text-right align-middle font-medium text-gray-300 whitespace-nowrap">Status</th>
+                        {showHostManager && (
+                          <th className="h-8 w-[60px] px-2 text-right align-middle font-medium text-gray-300 whitespace-nowrap">Action</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monitoredHosts.length > 0 ? (
+                        <>
+                          {monitoredHosts.map((host, index) => (
+                            <tr 
+                              key={host} 
+                              className={`border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors ${index % 2 === 0 ? 'bg-gray-800/10' : ''}`}
+                            >
+                              <td className="p-2 align-middle">
+                                <div className="flex items-center space-x-2">
+                                  <Globe className="h-4 w-4 text-blue-400" />
+                                  <span className="font-mono text-white truncate max-w-[120px]">{host}</span>
+                                </div>
+                              </td>
+                              <td className="p-2 align-middle text-right">
+                                <div className="flex items-center justify-end">
+                                  <div className="px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20 flex items-center">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-1.5"></div>
+                                    <span className="text-xs font-medium text-green-400">Active</span>
+                                  </div>
+                                </div>
+                              </td>
+                              {showHostManager && (
+                                <td className="p-2 align-middle text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeHost(host)}
+                                    className="h-7 w-7 p-0 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                          {/* Add placeholder rows to ensure minimum 5 rows */}
+                          {monitoredHosts.length < 5 && Array.from({ length: 5 - monitoredHosts.length }).map((_, index) => (
+                            <tr 
+                              key={`placeholder-${index}`} 
+                              className={`border-b border-gray-700/50 ${(monitoredHosts.length + index) % 2 === 0 ? 'bg-gray-800/10' : ''}`}
+                            >
+                              <td className="p-2 align-middle">
+                                <div className="flex items-center space-x-2 opacity-30">
+                                  <Globe className="h-4 w-4 text-gray-500" />
+                                  <span className="font-mono text-gray-500 truncate max-w-[120px]">—</span>
+                                </div>
+                              </td>
+                              <td className="p-2 align-middle text-right">
+                                <div className="flex items-center justify-end opacity-30">
+                                  <div className="px-2 py-1 rounded-full bg-gray-700/30 border border-gray-700/20 flex items-center">
+                                    <div className="w-2 h-2 rounded-full bg-gray-500 mr-1.5"></div>
+                                    <span className="text-xs font-medium text-gray-500">Empty</span>
+                                  </div>
+                                </div>
+                              </td>
+                              {showHostManager && (
+                                <td className="p-2 align-middle text-right">
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <tr>
+                            <td colSpan={showHostManager ? 3 : 2} className="p-4 text-center">
+                              <div className="flex flex-col items-center justify-center py-3">
+                                <Globe className="h-6 w-6 text-gray-600 mb-2" />
+                                <p className="text-gray-400 text-sm">No hosts being monitored</p>
+                              </div>
+                            </td>
+                          </tr>
+                          {/* Add placeholder rows to ensure minimum 5 rows when no hosts */}
+                          {Array.from({ length: 4 }).map((_, index) => (
+                            <tr 
+                              key={`empty-placeholder-${index}`} 
+                              className={`border-b border-gray-700/50 ${index % 2 === 0 ? 'bg-gray-800/10' : ''}`}
+                            >
+                              <td className="p-2 align-middle">
+                                <div className="flex items-center space-x-2 opacity-30">
+                                  <Globe className="h-4 w-4 text-gray-500" />
+                                  <span className="font-mono text-gray-500 truncate max-w-[120px]">—</span>
+                                </div>
+                              </td>
+                              <td className="p-2 align-middle text-right">
+                                <div className="flex items-center justify-end opacity-30">
+                                  <div className="px-2 py-1 rounded-full bg-gray-700/30 border border-gray-700/20 flex items-center">
+                                    <div className="w-2 h-2 rounded-full bg-gray-500 mr-1.5"></div>
+                                    <span className="text-xs font-medium text-gray-500">Empty</span>
+                                  </div>
+                                </div>
+                              </td>
+                              {showHostManager && (
+                                <td className="p-2 align-middle text-right">
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   )

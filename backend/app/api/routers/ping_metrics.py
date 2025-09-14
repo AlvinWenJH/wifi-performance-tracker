@@ -142,11 +142,23 @@ async def get_monitored_hosts():
 @router.get("/hosts/{host}/summary")
 async def get_host_summary(
     host: str = Path(..., description="Target host to analyze"),
-    hours: int = Query(24, ge=1, le=168, description="Hours of data to analyze"),
+    hours: int = Query(None, ge=1, le=168, description="Hours of data to analyze"),
+    minutes: int = Query(
+        None, ge=1, le=10080, description="Minutes of data to analyze"
+    ),
 ):
     """Get comprehensive summary for a specific host"""
     try:
-        summary = await ping_crud.get_host_summary(host=host, hours=hours)
+        # Default to 24 hours if neither hours nor minutes is provided
+        if hours is None and minutes is None:
+            hours = 24
+
+        # If minutes is provided, convert to hours for the backend function
+        if minutes is not None:
+            summary = await ping_crud.get_host_summary(host=host, minutes=minutes)
+        else:
+            summary = await ping_crud.get_host_summary(host=host, hours=hours)
+
         return summary
     except Exception as e:
         logger.error(f"Failed to get host summary for {host}: {e}")
