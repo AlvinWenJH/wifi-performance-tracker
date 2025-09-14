@@ -46,6 +46,32 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 94.1%;
+    
+    /* Custom WiFi Tracker Dark Theme */
+    --app-bg: 17 24 39; /* gray-900 */
+    --app-text: 255 255 255; /* white */
+    --card-bg: 31 41 55; /* gray-800 */
+    --card-border: 55 65 81; /* gray-700 */
+    --card-inner-bg: 17 24 39; /* gray-850 */
+    --text-muted: 156 163 175; /* gray-400 */
+    --text-secondary: 209 213 219; /* gray-300 */
+    --header-bg: 31 41 55; /* gray-800 */
+  }
+  
+  .light {
+    /* Custom WiFi Tracker Light Theme */
+    --app-bg: 248 250 252; /* slate-50 */
+    --app-text: 15 23 42; /* slate-900 */
+    --card-bg: 255 255 255; /* white */
+    --card-border: 226 232 240; /* slate-200 */
+    --card-inner-bg: 241 245 249; /* slate-100 */
+    --text-muted: 100 116 139; /* slate-500 */
+    --text-secondary: 51 65 85; /* slate-700 */
+    --header-bg: 255 255 255; /* white */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --header-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    --input-focus-ring: 59 130 246; /* blue-500 */
+    --input-placeholder: 148 163 184; /* slate-400 */
   }
 }
 
