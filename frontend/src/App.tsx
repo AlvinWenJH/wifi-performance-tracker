@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useMemo, startTransition } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
-import { Badge } from './components/ui/badge'
 import { Button } from './components/ui/button'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
-import { Wifi, Activity, Globe, RefreshCw, WifiOff, Plus, Trash2, Sun, Moon } from 'lucide-react'
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { Wifi, Activity, Globe, RefreshCw, Plus, Trash2, Sun, Moon } from 'lucide-react'
 import { useTheme } from './contexts/ThemeContext'
 import './App.css'
 
@@ -66,7 +65,7 @@ function App() {
   const [showHostManager, setShowHostManager] = useState(false)
   const [selectedHost, setSelectedHost] = useState<string>('8.8.8.8')
   const [timeRange, setTimeRange] = useState<'10m' | '1hr' | '5hr'>('10m')
-  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // WebSocket connection and message handling removed
 
@@ -472,7 +471,7 @@ function App() {
                   <div>
                     <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Current Response Time</div>
                     <div className="text-xl font-semibold text-blue-400">
-                      {chartData.length > 0 ? `${chartData[chartData.length - 1].responseTime.toFixed(1)}ms` : '--'}
+                      {chartData.length > 0 ? `${chartData[chartData.length - 1]?.responseTime?.toFixed(1)}ms` : '--'}
                     </div>
                   </div>
 
