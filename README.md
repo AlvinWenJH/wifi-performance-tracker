@@ -2,6 +2,11 @@
 
 A comprehensive real-time WiFi performance monitoring system with web dashboard, built with FastAPI, React, and TimescaleDB.
 
+![WiFi Performance Tracker Preview](./assets/preview.png)
+
+## ToDo
+1. Add n8n workflow to send reports on internet `x` hours downtime to email
+
 ## Product Requirements Document (PRD)
 
 ### 1. Product Overview
