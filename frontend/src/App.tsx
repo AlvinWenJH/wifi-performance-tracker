@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo, startTransition } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
 import { Button } from './components/ui/button'
+import { Modal } from './components/ui/modal'
+import { DowntimeTimeline } from './components/DowntimeTimeline'
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { Wifi, Activity, Globe, RefreshCw, Plus, Trash2, Sun, Moon } from 'lucide-react'
 import { useTheme } from './contexts/ThemeContext'
@@ -38,6 +40,20 @@ interface ISPInfo {
   country?: string
 }
 
+interface DowntimePeriod {
+  start_time: string
+  end_time: string
+  duration_seconds: number
+}
+
+interface DowntimeData {
+  host: string
+  hours_analyzed: number
+  min_duration_seconds: number
+  downtime_periods: DowntimePeriod[]
+  total_downtime_events: number
+}
+
 // WebSocket interface removed
 
 // PingResult interface removed as it was only used with WebSocket
@@ -66,8 +82,48 @@ function App() {
   const [selectedHost, setSelectedHost] = useState<string>('8.8.8.8')
   const [timeRange, setTimeRange] = useState<'1hr' | '1d' | '1w'>('1hr')
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showDowntimeModal, setShowDowntimeModal] = useState(false)
+  const [downtimeData, setDowntimeData] = useState<DowntimeData | null>(null)
+  const [isLoadingDowntime, setIsLoadingDowntime] = useState(false)
 
   // WebSocket connection and message handling removed
+
+  const fetchDowntimeData = async () => {
+    try {
+      setIsLoadingDowntime(true)
+
+      // Calculate hours based on timeRange
+      let hours = 1
+      if (timeRange === '1hr') {
+        hours = 1
+      } else if (timeRange === '1d') {
+        hours = 24
+      } else if (timeRange === '1w') {
+        hours = 168 // 7 days * 24 hours
+      }
+
+      const apiBaseUrl = getApiBaseUrl()
+      const response = await fetch(`${apiBaseUrl}/ping-metrics/hosts/${encodeURIComponent(selectedHost)}/downtime?hours=${hours}&min_duration=1`)
+
+      if (response.ok) {
+        const data = await response.json()
+        setDowntimeData(data)
+      } else {
+        console.error('Failed to fetch downtime data:', response.statusText)
+        setDowntimeData(null)
+      }
+    } catch (error) {
+      console.error('Error fetching downtime data:', error)
+      setDowntimeData(null)
+    } finally {
+      setIsLoadingDowntime(false)
+    }
+  }
+
+  const handlePacketLossClick = async () => {
+    setShowDowntimeModal(true)
+    await fetchDowntimeData()
+  }
 
   const debouncedFetchData = async () => {
     // Prevent multiple simultaneous calls
@@ -120,7 +176,7 @@ function App() {
         const hours = Math.ceil(minutes / 60);
         metricsUrl = `${apiBaseUrl}/ping-metrics/?hours=${hours}${hostParam}&limit=1000`;
       }
-      
+
       const metricsPromise = fetch(metricsUrl, {
         signal: controller.signal
       }).then(res => res.json())
@@ -503,8 +559,8 @@ function App() {
               <div>
                 <CardTitle className="text-sm" style={{ color: `rgb(var(--app-text))` }}>Detailed Metrics</CardTitle>
                 <CardDescription className="text-xs" style={{ color: `rgb(var(--text-muted))` }}>
-                Statistics for {selectedHost} over the past {timeRange === '1hr' ? '1 hour' : timeRange === '1d' ? '1 day' : '1 week'}
-              </CardDescription>
+                  Statistics for {selectedHost} over the past {timeRange === '1hr' ? '1 hour' : timeRange === '1d' ? '1 day' : '1 week'}
+                </CardDescription>
               </div>
               <div className="flex border rounded overflow-hidden" style={{ borderColor: `rgb(var(--card-border))` }}>
                 <button
@@ -569,7 +625,12 @@ function App() {
                   </div>
                 </div>
 
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
+                <div
+                  className="rounded-lg p-1.5 border cursor-pointer hover:bg-opacity-80 transition-colors"
+                  style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}
+                  onClick={handlePacketLossClick}
+                  title="Click to view downtime details"
+                >
                   <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Packet Losses</div>
                   <div className="text-base font-bold text-red-400">
                     {reliabilityStats?.packet_losses !== undefined ? reliabilityStats.packet_losses.toLocaleString() : '--'}
@@ -601,8 +662,8 @@ function App() {
                     >
                       <defs>
                         <linearGradient id="responseTimeGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis
@@ -623,9 +684,9 @@ function App() {
                         tickFormatter={(value) => `${value}ms`}
                       />
                       <Tooltip
-                        contentStyle={{ 
-                          backgroundColor: theme === 'light' ? '#FFFFFF' : '#1F2937', 
-                          borderColor: theme === 'light' ? '#E5E7EB' : '#374151', 
+                        contentStyle={{
+                          backgroundColor: theme === 'light' ? '#FFFFFF' : '#1F2937',
+                          borderColor: theme === 'light' ? '#E5E7EB' : '#374151',
                           color: theme === 'light' ? '#374151' : '#F9FAFB',
                           boxShadow: theme === 'light' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' : 'none'
                         }}
@@ -714,7 +775,7 @@ function App() {
                             <tr
                               key={host}
                               className={`border-b transition-colors ${index % 2 === 0 ? '' : ''}`}
-                              style={{ 
+                              style={{
                                 borderColor: `rgb(var(--card-border))`,
                                 backgroundColor: index % 2 === 0 ? (theme === 'light' ? 'rgb(248 250 252)' : 'rgba(31, 41, 55, 0.3)') : 'transparent'
                               }}
@@ -835,6 +896,19 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Downtime Modal */}
+      <Modal
+        isOpen={showDowntimeModal}
+        onClose={() => setShowDowntimeModal(false)}
+        title={`Downtime Analysis - ${selectedHost}`}
+        size="xl"
+      >
+        <DowntimeTimeline
+          data={downtimeData}
+          isLoading={isLoadingDowntime}
+        />
+      </Modal>
     </div>
   )
 }
