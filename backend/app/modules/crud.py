@@ -240,12 +240,16 @@ class PingMetricsCRUD:
                     ORDER BY timestamp
                 ),
                 downtime_starts AS (
-                    SELECT timestamp as start_time
+                    SELECT 
+                        timestamp as start_time,
+                        ROW_NUMBER() OVER (ORDER BY timestamp) as rn
                     FROM downtime_events
                     WHERE packet_loss = TRUE AND (prev_packet_loss = FALSE OR prev_packet_loss IS NULL)
                 ),
                 downtime_ends AS (
-                    SELECT timestamp as end_time
+                    SELECT 
+                        timestamp as end_time,
+                        ROW_NUMBER() OVER (ORDER BY timestamp) as rn
                     FROM downtime_events
                     WHERE packet_loss = FALSE AND prev_packet_loss = TRUE
                 )
@@ -254,8 +258,9 @@ class PingMetricsCRUD:
                     de.end_time,
                     EXTRACT(EPOCH FROM (de.end_time - ds.start_time)) as duration_seconds
                 FROM downtime_starts ds
-                LEFT JOIN downtime_ends de ON de.end_time > ds.start_time
-                WHERE EXTRACT(EPOCH FROM (de.end_time - ds.start_time)) >= $3
+                LEFT JOIN downtime_ends de ON ds.rn = de.rn
+                WHERE de.end_time IS NOT NULL 
+                    AND EXTRACT(EPOCH FROM (de.end_time - ds.start_time)) >= $3
                 ORDER BY ds.start_time DESC
             """
 

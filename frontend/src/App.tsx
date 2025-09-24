@@ -64,7 +64,7 @@ function App() {
   const [newHost, setNewHost] = useState('')
   const [showHostManager, setShowHostManager] = useState(false)
   const [selectedHost, setSelectedHost] = useState<string>('8.8.8.8')
-  const [timeRange, setTimeRange] = useState<'10m' | '1hr' | '5hr'>('10m')
+  const [timeRange, setTimeRange] = useState<'1hr' | '1d' | '1w'>('1hr')
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // WebSocket connection and message handling removed
@@ -97,30 +97,40 @@ function App() {
       // Fetch ping metrics based on selected time range
       let minutes = 60; // Default to 1 hour
 
-      if (timeRange === '10m') {
-        minutes = 10;
-      } else if (timeRange === '1hr') {
+      if (timeRange === '1hr') {
         minutes = 60;
-      } else if (timeRange === '5hr') {
-        minutes = 300;
+      } else if (timeRange === '1d') {
+        minutes = 1440; // 24 hours * 60 minutes
+      } else if (timeRange === '1w') {
+        minutes = 10080; // 7 days * 24 hours * 60 minutes
       }
 
       // Get the API base URL
       const apiBaseUrl = getApiBaseUrl()
 
-      const hostParam = selectedHost ? `&host=${selectedHost}` : '';
+      const hostParam = selectedHost ? `&host=${encodeURIComponent(selectedHost)}` : '';
 
       // Prepare all API calls
-      const metricsPromise = fetch(`${apiBaseUrl}/ping-metrics/time-range/?minutes=${minutes}${hostParam}&limit=1000`, {
+      let metricsUrl;
+      if (timeRange === '1hr') {
+        // Use time-range endpoint for 1hr (within 300 minute limit)
+        metricsUrl = `${apiBaseUrl}/ping-metrics/time-range/?minutes=${minutes}${hostParam}&limit=1000`;
+      } else {
+        // Use main endpoint with hours parameter for 1d and 1w
+        const hours = Math.ceil(minutes / 60);
+        metricsUrl = `${apiBaseUrl}/ping-metrics/?hours=${hours}${hostParam}&limit=1000`;
+      }
+      
+      const metricsPromise = fetch(metricsUrl, {
         signal: controller.signal
       }).then(res => res.json())
 
       // Fetch reliability statistics based on selected time range
       let statsUrl;
-      if (timeRange === '10m') {
+      if (timeRange === '1hr') {
         statsUrl = `${apiBaseUrl}/ping-metrics/hosts/${selectedHost}/summary?minutes=${minutes}`;
       } else {
-        // For 1hr and 5hr options, convert minutes to hours
+        // For 1d and 1w options, convert minutes to hours
         const hours = Math.ceil(minutes / 60);
         statsUrl = `${apiBaseUrl}/ping-metrics/hosts/${selectedHost}/summary?hours=${hours}`;
       }
@@ -264,17 +274,17 @@ function App() {
     let cutoffTime: Date
 
     switch (timeRange) {
-      case '10m':
-        cutoffTime = new Date(now.getTime() - 10 * 60 * 1000) // 10 minutes ago
-        break
       case '1hr':
         cutoffTime = new Date(now.getTime() - 60 * 60 * 1000) // 1 hour ago
         break
-      case '5hr':
-        cutoffTime = new Date(now.getTime() - 5 * 60 * 60 * 1000) // 5 hours ago
+      case '1d':
+        cutoffTime = new Date(now.getTime() - 24 * 60 * 60 * 1000) // 1 day ago
+        break
+      case '1w':
+        cutoffTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 1 week ago
         break
       default:
-        cutoffTime = new Date(now.getTime() - 10 * 60 * 1000) // Default to 10 minutes
+        cutoffTime = new Date(now.getTime() - 60 * 60 * 1000) // Default to 1 hour
     }
 
     return pingData
@@ -493,17 +503,10 @@ function App() {
               <div>
                 <CardTitle className="text-sm" style={{ color: `rgb(var(--app-text))` }}>Detailed Metrics</CardTitle>
                 <CardDescription className="text-xs" style={{ color: `rgb(var(--text-muted))` }}>
-                Statistics for {selectedHost} over the past {timeRange === '10m' ? '10 minutes' : timeRange === '1hr' ? '1 hour' : '5 hours'}
+                Statistics for {selectedHost} over the past {timeRange === '1hr' ? '1 hour' : timeRange === '1d' ? '1 day' : '1 week'}
               </CardDescription>
               </div>
               <div className="flex border rounded overflow-hidden" style={{ borderColor: `rgb(var(--card-border))` }}>
-                <button
-                  className={`px-1 py-0.5 text-xs ${timeRange === '10m' ? 'bg-blue-500 text-white' : ''}`}
-                  style={timeRange !== '10m' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
-                  onClick={() => setTimeRange('10m')}
-                >
-                  10m
-                </button>
                 <button
                   className={`px-1 py-0.5 text-xs ${timeRange === '1hr' ? 'bg-blue-500 text-white' : ''}`}
                   style={timeRange !== '1hr' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
@@ -512,11 +515,18 @@ function App() {
                   1h
                 </button>
                 <button
-                  className={`px-1 py-0.5 text-xs ${timeRange === '5hr' ? 'bg-blue-500 text-white' : ''}`}
-                  style={timeRange !== '5hr' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
-                  onClick={() => setTimeRange('5hr')}
+                  className={`px-1 py-0.5 text-xs ${timeRange === '1d' ? 'bg-blue-500 text-white' : ''}`}
+                  style={timeRange !== '1d' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
+                  onClick={() => setTimeRange('1d')}
                 >
-                  5h
+                  1d
+                </button>
+                <button
+                  className={`px-1 py-0.5 text-xs ${timeRange === '1w' ? 'bg-blue-500 text-white' : ''}`}
+                  style={timeRange !== '1w' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
+                  onClick={() => setTimeRange('1w')}
+                >
+                  1w
                 </button>
               </div>
             </CardHeader>
