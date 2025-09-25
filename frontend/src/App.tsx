@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useMemo, startTransition } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
 import { Button } from './components/ui/button'
 import { Modal } from './components/ui/modal'
+import { Toggle } from './components/ui/toggle'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { DowntimeTimeline } from './components/DowntimeTimeline'
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { Wifi, Activity, Globe, RefreshCw, Plus, Trash2, Sun, Moon } from 'lucide-react'
 import { useTheme } from './contexts/ThemeContext'
-import './App.css'
 
 interface PingMetric {
   id: number
@@ -368,9 +369,9 @@ function App() {
   }, [pingData, selectedHost, timeRange])
 
   const getReliabilityColor = (percentage: number) => {
-    if (percentage >= 99.5) return 'bg-green-500'
-    if (percentage >= 99) return 'bg-yellow-500'
-    return 'bg-red-500'
+    if (percentage >= 99.5) return 'bg-primary'
+    if (percentage >= 99) return 'bg-secondary'
+    return 'bg-muted'
   }
 
   const getReliabilityStatus = (percentage: number) => {
@@ -383,41 +384,43 @@ function App() {
 
 
   return (
-    <div className="min-h-screen p-2 md:p-3" style={{ backgroundColor: `rgb(var(--app-bg))`, color: `rgb(var(--app-text))` }}>
+    <div className="min-h-screen bg-background text-foreground p-2 md:p-3">
       {/* Header */}
-      <header className="mb-4 sticky top-0 z-10 -mx-2 md:-mx-3 px-2 md:px-3 py-3 border-b backdrop-blur" style={{ borderColor: `rgb(var(--card-border))`, backgroundColor: `rgb(var(--header-bg) / 0.95)`, boxShadow: theme === 'light' ? 'var(--header-shadow)' : '' }}>
+      <header className="mb-4 sticky top-0 z-10 -mx-2 md:-mx-3 px-2 md:px-3 py-3 border-b border-border backdrop-blur bg-background/95 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-blue-600 rounded-lg">
-              <Wifi className="h-5 w-5 text-white" />
+            <div className="p-1.5 bg-primary rounded-lg">
+              <Wifi className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl lg:text-2xl font-bold" style={{ color: `rgb(var(--app-text))` }}>WiFi Performance Tracker</h1>
-              <p className="text-xs lg:text-sm" style={{ color: `rgb(var(--text-muted))` }}>Real-time network monitoring dashboard</p>
+              <h1 className="text-xl lg:text-2xl font-bold text-foreground">WiFi Performance Tracker</h1>
+              <p className="text-xs lg:text-sm text-muted-foreground">Real-time network monitoring dashboard</p>
             </div>
           </div>
           <div className="flex flex-col lg:items-end space-y-2 lg:space-y-1">
             <div className="flex items-center space-x-1.5">
-              <div className={`w-3 h-3 rounded-full ${monitoringActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              <span className="text-sm font-medium" style={{ color: `rgb(var(--app-text))` }}>{monitoringActive ? 'Monitoring Active' : 'Monitoring Inactive'}</span>
+              <div className={`w-3 h-3 rounded-full ${monitoringActive ? 'bg-primary animate-pulse' : 'bg-muted'}`}></div>
+              <span className="text-sm font-medium text-foreground">{monitoringActive ? 'Monitoring Active' : 'Monitoring Inactive'}</span>
             </div>
             <div className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-1.5">
-              <div className="text-xs" style={{ color: `rgb(var(--text-muted))` }}>
+              <div className="text-xs text-muted-foreground">
                 Last updated: {lastUpdate ? lastUpdate.toLocaleString() : '--'}
               </div>
               <div className="flex items-center space-x-1.5">
+                <div className="flex items-center space-x-2">
+                  <Sun className="h-4 w-4 text-muted-foreground" />
+                  <Toggle
+                    pressed={theme === 'dark'}
+                    onPressedChange={() => {}}
+                    onClick={(event) => toggleTheme(event)}
+                    size="sm"
+                    aria-label="Toggle dark mode"
+                  />
+                  <Moon className="h-4 w-4 text-muted-foreground" />
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-gray-600 hover:bg-gray-500 text-white border-gray-500 text-xs lg:text-sm"
-                  onClick={toggleTheme}
-                >
-                  {theme === 'dark' ? <Sun className="h-3 w-3 lg:h-4 lg:w-4" /> : <Moon className="h-3 w-3 lg:h-4 lg:w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-xs lg:text-sm"
                   onClick={debouncedFetchData}
                 >
                   <RefreshCw className="h-3 w-3 lg:h-4 lg:w-4 mr-1" /> Refresh
@@ -425,7 +428,6 @@ function App() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white border-blue-600 text-xs lg:text-sm"
                   onClick={toggleMonitoring}
                 >
                   {monitoringActive ? 'Stop' : 'Start'}
@@ -437,57 +439,60 @@ function App() {
       </header>
 
       {/* Main Dashboard - Single Screen Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Top Row - Main Performance Card */}
-        <Card className="col-span-1 lg:col-span-12" style={{ backgroundColor: `rgb(var(--card-bg))`, borderColor: `rgb(var(--card-border))`, boxShadow: theme === 'light' ? 'var(--card-shadow)' : '' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-3">
+        <Card className="col-span-1 lg:col-span-12">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-6">
             <div>
-              <CardTitle className="text-base font-medium" style={{ color: `rgb(var(--app-text))` }}>Network Performance Dashboard</CardTitle>
-              <CardDescription className="text-xs" style={{ color: `rgb(var(--text-muted))` }}>
+              <CardTitle className="text-lg font-semibold">Network Performance Dashboard</CardTitle>
+              <CardDescription className="text-sm mt-1">
                 Real-time network monitoring and performance analysis
               </CardDescription>
             </div>
-            <div className="flex items-center space-x-1.5">
-              <select
-                className="text-xs border rounded p-1 transition-colors" style={{ borderColor: `rgb(var(--card-border))`, backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--app-text))` }}
-                value={selectedHost}
-                onChange={(e) => setSelectedHost(e.target.value)}
-              >
-                {monitoredHosts.map(host => (
-                  <option key={host} value={host}>{host}</option>
-                ))}
-              </select>
+            <div className="flex items-center space-x-3">
+              <Select value={selectedHost} onValueChange={setSelectedHost}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select host" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monitoredHosts.map(host => (
+                    <SelectItem key={host} value={host}>
+                      {host}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
-          <CardContent className="py-1 px-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
+          <CardContent className="px-6 pb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Reliability Stats */}
-              <div className="col-span-1 md:col-span-1 lg:col-span-3 rounded-lg p-3 border h-full flex flex-col" style={{ backgroundColor: `rgb(var(--card-inner-bg))`, borderColor: `rgb(var(--card-border))`, boxShadow: theme === 'light' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : '' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium" style={{ color: `rgb(var(--text-secondary))` }}>Reliability</h3>
-                  <Activity className="h-4 w-4 text-blue-400" />
+              <div className="col-span-1 lg:col-span-3 rounded-lg p-6 border border-border bg-card shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-base font-semibold text-card-foreground">Reliability</h3>
+                  <Activity className="h-5 w-5 text-primary" />
                 </div>
-                <div className="text-center flex-1 flex flex-col justify-center">
-                  <div className="text-4xl font-bold mb-2" style={{ color: `rgb(var(--app-text))` }}>
+                <div className="text-center mb-6">
+                  <div className="text-5xl font-bold mb-3 text-foreground">
                     {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(1)}%` : '--'}
                   </div>
-                  <div className="flex items-center justify-center space-x-2 mb-6">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
                     <div className={`w-3 h-3 rounded-full ${reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityColor(reliabilityStats.uptime_percentage) : 'bg-gray-300'}`}></div>
-                    <span className="text-base font-medium" style={{ color: `rgb(var(--text-muted))` }}>
+                    <span className="text-sm font-medium text-muted-foreground">
                       {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityStatus(reliabilityStats.uptime_percentage) : 'Loading...'}
                     </span>
                   </div>
                 </div>
-                <div className="space-y-3 text-sm mt-auto">
+                <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-center">
-                    <span style={{ color: `rgb(var(--text-muted))` }}>Avg Response</span>
-                    <span className="font-semibold" style={{ color: `rgb(var(--app-text))` }}>
+                    <span className="text-muted-foreground">Avg Response</span>
+                    <span className="font-semibold text-foreground">
                       {reliabilityStats && reliabilityStats.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(1)}ms` : '--'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span style={{ color: `rgb(var(--text-muted))` }}>Packet Loss</span>
-                    <span className="font-semibold" style={{ color: `rgb(var(--app-text))` }}>
+                    <span className="text-muted-foreground">Packet Loss</span>
+                    <span className="font-semibold text-foreground">
                       {reliabilityStats && reliabilityStats.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
                     </span>
                   </div>
@@ -495,56 +500,56 @@ function App() {
               </div>
 
               {/* Network & ISP Information */}
-              <div className="col-span-1 md:col-span-1 lg:col-span-9 rounded-lg p-3 border h-full flex flex-col" style={{ backgroundColor: `rgb(var(--card-inner-bg))`, borderColor: `rgb(var(--card-border))`, boxShadow: theme === 'light' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : '' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium" style={{ color: `rgb(var(--text-secondary))` }}>Network & ISP Information</h3>
-                  <Globe className="h-4 w-4 text-blue-400" />
+              <div className="col-span-1 lg:col-span-9 rounded-lg p-6 border border-border bg-card shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-base font-semibold text-card-foreground">Network & ISP Information</h3>
+                  <Globe className="h-5 w-5 text-primary" />
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                   {/* ISP Provider */}
-                  <div className="flex flex-col justify-center">
-                    <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Internet Service Provider</div>
-                    <div className="text-xl font-semibold break-words" style={{ color: `rgb(var(--app-text))` }}>{ispInfo?.provider || '--'}</div>
+                  <div>
+                    <div className="text-sm mb-2 text-muted-foreground font-medium">Internet Service Provider</div>
+                    <div className="text-xl font-semibold break-words text-foreground">{ispInfo?.provider || '--'}</div>
                   </div>
 
                   {/* IP Address */}
-                  <div className="flex flex-col justify-center">
-                    <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Public IP Address</div>
-                    <div className="text-xl font-semibold" style={{ color: `rgb(var(--app-text))` }}>{ispInfo?.ip || '--'}</div>
+                  <div>
+                    <div className="text-sm mb-2 text-muted-foreground font-medium">Public IP Address</div>
+                    <div className="text-xl font-semibold text-foreground font-mono">{ispInfo?.ip || '--'}</div>
                   </div>
 
                   {/* Location */}
-                  <div className="flex flex-col justify-center">
-                    <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Location</div>
-                    <div className="text-xl font-semibold" style={{ color: `rgb(var(--app-text))` }}>
+                  <div>
+                    <div className="text-sm mb-2 text-muted-foreground font-medium">Location</div>
+                    <div className="text-xl font-semibold text-foreground">
                       {ispInfo?.city && ispInfo?.country ? `${ispInfo.city}, ${ispInfo.country}` : '--'}
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mt-auto">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {/* Connection Status */}
                   <div>
-                    <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Connection Status</div>
+                    <div className="text-sm mb-2 text-muted-foreground font-medium">Connection Status</div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      <span className="text-base font-medium" style={{ color: `rgb(var(--app-text))` }}>Active</span>
+                      <div className="w-3 h-3 rounded-full bg-primary"></div>
+                      <span className="text-lg font-semibold text-foreground">Active</span>
                     </div>
                   </div>
 
                   {/* Current Response Time */}
                   <div>
-                    <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Current Response Time</div>
-                    <div className="text-xl font-semibold text-blue-400">
+                    <div className="text-sm mb-2 text-muted-foreground font-medium">Current Response Time</div>
+                    <div className="text-xl font-semibold text-primary">
                       {chartData.length > 0 ? `${chartData[chartData.length - 1]?.responseTime?.toFixed(1)}ms` : '--'}
                     </div>
                   </div>
 
                   {/* Current Host */}
                   <div>
-                    <div className="text-xs mb-2" style={{ color: `rgb(var(--text-muted))` }}>Monitoring Host</div>
-                    <div className="text-xl font-semibold" style={{ color: `rgb(var(--app-text))` }}>{selectedHost}</div>
+                    <div className="text-sm mb-2 text-muted-foreground font-medium">Monitoring Host</div>
+                    <div className="text-xl font-semibold text-foreground font-mono">{selectedHost}</div>
                   </div>
                 </div>
               </div>
@@ -554,161 +559,158 @@ function App() {
 
         {/* Middle Row - Detailed Metrics and Response Time History */}
         <div className="col-span-1 lg:col-span-8">
-          <Card className="h-full" style={{ backgroundColor: `rgb(var(--card-bg))`, borderColor: `rgb(var(--card-border))`, boxShadow: theme === 'light' ? 'var(--card-shadow)' : '' }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-4">
+          <Card className="h-full bg-card border-border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-6">
               <div>
-                <CardTitle className="text-sm" style={{ color: `rgb(var(--app-text))` }}>Detailed Metrics</CardTitle>
-                <CardDescription className="text-xs" style={{ color: `rgb(var(--text-muted))` }}>
+                <CardTitle className="text-lg font-semibold text-card-foreground">Detailed Metrics</CardTitle>
+                <CardDescription className="text-sm mt-1 text-muted-foreground">
                   Statistics for {selectedHost} over the past {timeRange === '1hr' ? '1 hour' : timeRange === '1d' ? '1 day' : '1 week'}
                 </CardDescription>
               </div>
-              <div className="flex border rounded overflow-hidden" style={{ borderColor: `rgb(var(--card-border))` }}>
+              <div className="flex border border-border rounded-md overflow-hidden">
                 <button
-                  className={`px-1 py-0.5 text-xs ${timeRange === '1hr' ? 'bg-blue-500 text-white' : ''}`}
-                  style={timeRange !== '1hr' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${timeRange === '1hr' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
                   onClick={() => setTimeRange('1hr')}
                 >
                   1h
                 </button>
                 <button
-                  className={`px-1 py-0.5 text-xs ${timeRange === '1d' ? 'bg-blue-500 text-white' : ''}`}
-                  style={timeRange !== '1d' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${timeRange === '1d' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
                   onClick={() => setTimeRange('1d')}
                 >
                   1d
                 </button>
                 <button
-                  className={`px-1 py-0.5 text-xs ${timeRange === '1w' ? 'bg-blue-500 text-white' : ''}`}
-                  style={timeRange !== '1w' ? { backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--text-secondary))` } : {}}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${timeRange === '1w' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
                   onClick={() => setTimeRange('1w')}
                 >
                   1w
                 </button>
               </div>
             </CardHeader>
-            <CardContent className="py-1 px-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <CardContent className="px-6 pb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {/* Response Times */}
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Average</div>
-                  <div className="text-base font-bold text-blue-400">
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Average</div>
+                  <div className="text-lg font-bold text-primary">
                     {reliabilityStats?.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
 
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Median</div>
-                  <div className="text-base font-bold text-blue-400">
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Median</div>
+                  <div className="text-lg font-bold text-primary">
                     {reliabilityStats?.median_response_time !== undefined ? `${reliabilityStats.median_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
 
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Min</div>
-                  <div className="text-base font-bold text-green-400">
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Min</div>
+                  <div className="text-lg font-bold text-primary">
                     {reliabilityStats?.min_response_time !== undefined ? `${reliabilityStats.min_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
 
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Max</div>
-                  <div className="text-base font-bold text-amber-400">
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Max</div>
+                  <div className="text-lg font-bold text-primary">
                     {reliabilityStats?.max_response_time !== undefined ? `${reliabilityStats.max_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
 
                 {/* Reliability Metrics */}
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Total Pings</div>
-                  <div className="text-base font-bold" style={{ color: `rgb(var(--app-text))` }}>
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Total Pings</div>
+                  <div className="text-lg font-bold text-foreground">
                     {reliabilityStats?.total_pings !== undefined ? reliabilityStats.total_pings.toLocaleString() : '--'}
                   </div>
                 </div>
 
                 <div
-                  className="rounded-lg p-1.5 border cursor-pointer hover:bg-opacity-80 transition-colors"
-                  style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}
+                  className="rounded-lg p-4 border border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={handlePacketLossClick}
                   title="Click to view downtime details"
                 >
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Packet Losses</div>
-                  <div className="text-base font-bold text-red-400">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Packet Losses</div>
+                  <div className="text-lg font-bold text-destructive">
                     {reliabilityStats?.packet_losses !== undefined ? reliabilityStats.packet_losses.toLocaleString() : '--'}
                   </div>
                 </div>
 
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Loss Rate</div>
-                  <div className="text-base font-bold" style={{ color: `rgb(var(--app-text))` }}>
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Loss Rate</div>
+                  <div className="text-lg font-bold text-foreground">
                     {reliabilityStats?.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
                   </div>
                 </div>
 
-                <div className="rounded-lg p-1.5 border" style={{ backgroundColor: theme === 'light' ? `rgb(var(--card-inner-bg))` : 'transparent', borderColor: `rgb(var(--card-border))` }}>
-                  <div className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>95th Percentile</div>
-                  <div className="text-base font-bold text-purple-400">
+                <div className="rounded-lg p-4 border border-border bg-muted/30">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">95th Percentile</div>
+                  <div className="text-lg font-bold text-accent">
                     {reliabilityStats?.p95_response_time !== undefined ? `${reliabilityStats.p95_response_time.toFixed(2)}ms` : '--'}
                   </div>
                 </div>
               </div>
 
               {/* Response Time Chart */}
-              <div className="mt-1 h-[120px] md:h-[150px] w-full">
+              <div className="h-[180px] w-full">
                 {chartData.length > 0 && !isLoading ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                       data={chartData}
-                      margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                      margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
                     >
                       <defs>
-                        <linearGradient id="responseTimeGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                        <linearGradient id="colorResponseTime" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis
                         dataKey="time"
-                        stroke={theme === 'light' ? '#6B7280' : '#9CA3AF'}
-                        tick={{ fill: theme === 'light' ? '#6B7280' : '#9CA3AF', fontSize: 10 }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         tickLine={false}
                         axisLine={false}
                         interval="preserveStartEnd"
                         minTickGap={30}
                       />
                       <YAxis
-                        stroke={theme === 'light' ? '#6B7280' : '#9CA3AF'}
-                        tick={{ fill: theme === 'light' ? '#6B7280' : '#9CA3AF', fontSize: 10 }}
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         tickLine={false}
                         axisLine={false}
-                        width={30}
+                        width={40}
                         tickFormatter={(value) => `${value}ms`}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: theme === 'light' ? '#FFFFFF' : '#1F2937',
-                          borderColor: theme === 'light' ? '#E5E7EB' : '#374151',
-                          color: theme === 'light' ? '#374151' : '#F9FAFB',
-                          boxShadow: theme === 'light' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' : 'none'
+                          backgroundColor: 'hsl(var(--popover))',
+                          borderColor: 'hsl(var(--border))',
+                          color: 'hsl(var(--popover-foreground))',
+                          boxShadow: 'var(--shadow)',
+                          borderRadius: '8px'
                         }}
-                        labelStyle={{ color: theme === 'light' ? '#374151' : '#F9FAFB' }}
-                        itemStyle={{ color: '#3B82F6' }}
+                        labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        itemStyle={{ color: 'hsl(var(--primary))' }}
                         formatter={(value) => [`${value} ms`, 'Response Time']}
                       />
                       <Area
                         type="monotone"
                         dataKey="responseTime"
-                        stroke="#3B82F6"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         dot={false}
-                        activeDot={{ fill: '#3B82F6', r: 3, stroke: theme === 'light' ? '#FFFFFF' : '#1F2937', strokeWidth: 1 }}
+                        activeDot={{ fill: 'hsl(var(--primary))', r: 4, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
                         name="Response Time"
-                        fill="url(#responseTimeGradient)"
+                        fill="url(#colorResponseTime)"
                         fillOpacity={1}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-xs" style={{ color: `rgb(var(--text-muted))` }}>
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                     {isLoading ? 'Loading...' : 'No data available'}
                   </div>
                 )}
@@ -719,181 +721,159 @@ function App() {
 
         {/* Right Column - Status and Host Management */}
         <div className="col-span-1 lg:col-span-4">
-          <div className="grid grid-cols-1 gap-4 h-full">
-            {/* Host Management */}
-            <Card className="flex-1 flex flex-col" style={{ backgroundColor: `rgb(var(--card-bg))`, borderColor: `rgb(var(--card-border))`, boxShadow: theme === 'light' ? 'var(--card-shadow)' : '' }}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-4">
-                <CardTitle className="text-sm font-medium" style={{ color: `rgb(var(--app-text))` }}>Monitored Hosts</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
-                  onClick={() => setShowHostManager(!showHostManager)}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Manage
-                </Button>
-              </CardHeader>
-              <CardContent className="p-2 flex-1 flex flex-col">
-                {showHostManager && (
-                  <div className="mb-3">
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={newHost}
-                        onChange={(e) => setNewHost(e.target.value)}
-                        placeholder="Enter host (e.g., 8.8.8.8)"
-                        className="flex-1 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 focus:border-transparent transition-colors" style={{ borderColor: `rgb(var(--card-border))`, backgroundColor: `rgb(var(--card-inner-bg))`, color: `rgb(var(--app-text))`, '--tw-ring-color': `rgb(var(--input-focus-ring))` } as React.CSSProperties}
-                        onKeyPress={(e) => e.key === 'Enter' && addHost()}
-                      />
-                      <Button
-                        size="sm"
-                        className="h-8 px-3 text-sm bg-blue-500 hover:bg-blue-600 text-white"
-                        onClick={addHost}
-                      >
-                        Add
-                      </Button>
-                    </div>
+          <Card className="h-full bg-card border-border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-6">
+              <CardTitle className="text-lg font-semibold text-card-foreground">Monitored Hosts</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-4 text-sm bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
+                onClick={() => setShowHostManager(!showHostManager)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Manage
+              </Button>
+            </CardHeader>
+            <CardContent className="px-6 pb-6 flex flex-col h-full">
+              {showHostManager && (
+                <div className="mb-4">
+                  <div className="flex space-x-3">
+                    <input
+                      type="text"
+                      value={newHost}
+                      onChange={(e) => setNewHost(e.target.value)}
+                      placeholder="Enter host (e.g., 8.8.8.8)"
+                      className="flex-1 px-3 py-2 text-sm border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                      onKeyPress={(e) => e.key === 'Enter' && addHost()}
+                    />
+                    <Button
+                      size="sm"
+                      className="h-10 px-4 text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={addHost}
+                    >
+                      Add
+                    </Button>
                   </div>
-                )}
+                </div>
+              )}
 
-                <div className="overflow-x-auto overflow-y-auto flex-1 rounded-lg border" style={{ borderColor: `rgb(var(--card-border))`, backgroundColor: `rgb(var(--card-inner-bg))`, boxShadow: theme === 'light' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : '' }}>
-                  <table className="w-full caption-bottom text-sm">
-                    <thead>
-                      <tr className="border-b" style={{ backgroundColor: `rgb(var(--card-bg))`, borderColor: `rgb(var(--card-border))` }}>
-                        <th className="h-8 px-4 text-left align-middle font-medium whitespace-nowrap" style={{ color: `rgb(var(--text-secondary))` }}>Host</th>
-                        <th className="h-8 px-4 text-right align-middle font-medium whitespace-nowrap" style={{ color: `rgb(var(--text-secondary))` }}>Status</th>
-                        {showHostManager && (
-                          <th className="h-8 w-[60px] px-2 text-right align-middle font-medium whitespace-nowrap" style={{ color: `rgb(var(--text-secondary))` }}>Action</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monitoredHosts.length > 0 ? (
-                        <>
-                          {monitoredHosts.map((host, index) => (
-                            <tr
-                              key={host}
-                              className={`border-b transition-colors ${index % 2 === 0 ? '' : ''}`}
-                              style={{
-                                borderColor: `rgb(var(--card-border))`,
-                                backgroundColor: index % 2 === 0 ? (theme === 'light' ? 'rgb(248 250 252)' : 'rgba(31, 41, 55, 0.3)') : 'transparent'
-                              }}
-                              onMouseEnter={(e) => {
-                                if (theme === 'light') {
-                                  e.currentTarget.style.backgroundColor = 'rgb(241 245 249)';
-                                } else {
-                                  e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (index % 2 === 0) {
-                                  e.currentTarget.style.backgroundColor = theme === 'light' ? 'rgb(248 250 252)' : 'rgba(31, 41, 55, 0.3)';
-                                } else {
-                                  e.currentTarget.style.backgroundColor = 'transparent';
-                                }
-                              }}
-                            >
-                              <td className="p-2 align-middle">
-                                <div className="flex items-center space-x-2">
-                                  <Globe className="h-4 w-4 text-blue-400" />
-                                  <span className="font-mono truncate max-w-[120px]" style={{ color: `rgb(var(--app-text))` }}>{host}</span>
-                                </div>
-                              </td>
-                              <td className="p-2 align-middle text-right">
-                                <div className="flex items-center justify-end">
-                                  <div className="px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20 flex items-center">
-                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-1.5"></div>
-                                    <span className="text-xs font-medium text-green-400">Active</span>
-                                  </div>
-                                </div>
-                              </td>
-                              {showHostManager && (
-                                <td className="p-2 align-middle text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeHost(host)}
-                                    className="h-7 w-7 p-0 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                          {/* Add placeholder rows to ensure minimum 5 rows */}
-                          {monitoredHosts.length < 5 && Array.from({ length: 5 - monitoredHosts.length }).map((_, index) => (
-                            <tr
-                              key={`placeholder-${index}`}
-                              className={`border-b border-gray-700/50 ${(monitoredHosts.length + index) % 2 === 0 ? 'bg-gray-800/10' : ''}`}
-                            >
-                              <td className="p-2 align-middle">
-                                <div className="flex items-center space-x-2 opacity-30">
-                                  <Globe className="h-4 w-4 text-gray-500" />
-                                  <span className="font-mono text-gray-500 truncate max-w-[120px]">—</span>
-                                </div>
-                              </td>
-                              <td className="p-2 align-middle text-right">
-                                <div className="flex items-center justify-end opacity-30">
-                                  <div className="px-2 py-1 rounded-full bg-gray-700/30 border border-gray-700/20 flex items-center">
-                                    <div className="w-2 h-2 rounded-full bg-gray-500 mr-1.5"></div>
-                                    <span className="text-xs font-medium text-gray-500">Empty</span>
-                                  </div>
-                                </div>
-                              </td>
-                              {showHostManager && (
-                                <td className="p-2 align-middle text-right">
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </>
-                      ) : (
-                        <>
-                          <tr>
-                            <td colSpan={showHostManager ? 3 : 2} className="p-4 text-center">
-                              <div className="flex flex-col items-center justify-center py-3">
-                                <Globe className="h-6 w-6 mb-2" style={{ color: `rgb(var(--text-muted))` }} />
-                                <p className="text-sm" style={{ color: `rgb(var(--text-muted))` }}>No hosts being monitored</p>
+              <div className="flex-1 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+                <table className="w-full caption-bottom text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-card">
+                      <th className="h-12 px-4 text-left align-middle font-semibold text-muted-foreground">Host</th>
+                      <th className="h-12 px-4 text-right align-middle font-semibold text-muted-foreground">Status</th>
+                      {showHostManager && (
+                        <th className="h-12 w-[80px] px-4 text-right align-middle font-semibold text-muted-foreground">Action</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monitoredHosts.length > 0 ? (
+                      <>
+                        {monitoredHosts.map((host, index) => (
+                          <tr
+                            key={host}
+                            className={`border-b border-border transition-colors hover:bg-muted/50 ${index % 2 === 0 ? 'bg-muted/20' : 'bg-transparent'}`}
+                          >
+                            <td className="p-4 align-middle">
+                              <div className="flex items-center space-x-3">
+                                <Globe className="h-4 w-4 text-primary" />
+                                <span className="font-mono text-sm truncate max-w-[120px] text-foreground">{host}</span>
                               </div>
                             </td>
+                            <td className="p-4 align-middle text-right">
+                              <div className="flex items-center justify-end">
+                                <div className="px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse mr-2"></div>
+                                  <span className="text-xs font-medium text-primary">Active</span>
+                                </div>
+                              </div>
+                            </td>
+                            {showHostManager && (
+                              <td className="p-4 align-middle text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeHost(host)}
+                                  className="h-8 w-8 p-0 rounded-full text-destructive hover:text-destructive/80 hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            )}
                           </tr>
-                          {/* Add placeholder rows to ensure minimum 5 rows when no hosts */}
-                          {Array.from({ length: 4 }).map((_, index) => (
-                            <tr
-                              key={`empty-placeholder-${index}`}
-                              className="border-b"
-                              style={{ borderColor: `rgb(var(--card-border))` }}
-                            >
-                              <td className="p-2 align-middle">
-                                <div className="flex items-center space-x-2 opacity-30">
-                                  <Globe className="h-4 w-4" style={{ color: `rgb(var(--text-muted))` }} />
-                                  <span className="font-mono truncate max-w-[120px]" style={{ color: `rgb(var(--text-muted))` }}>—</span>
+                        ))}
+                        {/* Add placeholder rows to ensure minimum 5 rows */}
+                        {monitoredHosts.length < 5 && Array.from({ length: 5 - monitoredHosts.length }).map((_, index) => (
+                          <tr
+                            key={`placeholder-${index}`}
+                            className={`border-b border-border ${(monitoredHosts.length + index) % 2 === 0 ? 'bg-muted/20' : 'bg-transparent'}`}
+                          >
+                            <td className="p-4 align-middle">
+                              <div className="flex items-center space-x-3 opacity-30">
+                                <Globe className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-mono text-sm text-muted-foreground truncate max-w-[120px]">—</span>
+                              </div>
+                            </td>
+                            <td className="p-4 align-middle text-right">
+                              <div className="flex items-center justify-end opacity-30">
+                                <div className="px-3 py-1.5 rounded-full bg-muted/30 border border-muted/20 flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-muted-foreground mr-2"></div>
+                                  <span className="text-xs font-medium text-muted-foreground">Empty</span>
                                 </div>
+                              </div>
+                            </td>
+                            {showHostManager && (
+                              <td className="p-4 align-middle text-right">
                               </td>
-                              <td className="p-2 align-middle text-right">
-                                <div className="flex items-center justify-end opacity-30">
-                                  <div className="px-2 py-1 rounded-full border flex items-center" style={{ backgroundColor: `rgb(var(--card-inner-bg) / 0.3)`, borderColor: `rgb(var(--card-border) / 0.2)` }}>
-                                    <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: `rgb(var(--text-muted))` }}></div>
-                                    <span className="text-xs font-medium" style={{ color: `rgb(var(--text-muted))` }}>Empty</span>
-                                  </div>
+                            )}
+                          </tr>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <tr>
+                          <td colSpan={showHostManager ? 3 : 2} className="p-6 text-center">
+                            <div className="flex flex-col items-center justify-center py-4">
+                              <Globe className="h-8 w-8 mb-3 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">No hosts being monitored</p>
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Add placeholder rows to ensure minimum 5 rows when no hosts */}
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <tr
+                            key={`empty-placeholder-${index}`}
+                            className="border-b border-border"
+                          >
+                            <td className="p-4 align-middle">
+                              <div className="flex items-center space-x-3 opacity-30">
+                                <Globe className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-mono text-sm truncate max-w-[120px] text-muted-foreground">—</span>
+                              </div>
+                            </td>
+                            <td className="p-4 align-middle text-right">
+                              <div className="flex items-center justify-end opacity-30">
+                                <div className="px-3 py-1.5 rounded-full bg-muted/30 border border-muted/20 flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-muted-foreground mr-2"></div>
+                                  <span className="text-xs font-medium text-muted-foreground">Empty</span>
                                 </div>
+                              </div>
+                            </td>
+                            {showHostManager && (
+                              <td className="p-4 align-middle text-right">
                               </td>
-                              {showHostManager && (
-                                <td className="p-2 align-middle text-right">
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                            )}
+                          </tr>
+                        ))}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 

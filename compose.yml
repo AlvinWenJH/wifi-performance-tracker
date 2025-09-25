@@ -37,7 +37,7 @@ services:
     container_name: wifi-tracker-backend
     environment:
       DATABASE_URL: postgresql://postgres:password@timescaledb:5432/wifi_tracker
-      PING_INTERVAL: 30
+      PING_INTERVAL: 10
       LOG_LEVEL: CRITICAL
     ports:
       - "8000:8000"

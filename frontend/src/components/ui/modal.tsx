@@ -29,15 +29,10 @@ export function Modal({ isOpen, onClose, title, children, size = 'lg' }: ModalPr
       />
       
       {/* Modal */}
-      <div className={`relative w-full ${sizeClasses[size]} mx-4 max-h-[90vh] overflow-hidden rounded-lg border shadow-lg`}
-           style={{ 
-             backgroundColor: 'rgb(var(--card-bg))', 
-             borderColor: 'rgb(var(--card-border))'
-           }}>
+      <div className={`relative w-full ${sizeClasses[size]} mx-4 max-h-[90vh] overflow-hidden rounded-lg border border-border shadow-lg bg-card`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b"
-             style={{ borderColor: 'rgb(var(--card-border))' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'rgb(var(--app-text))' }}>
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-card-foreground">
             {title}
           </h2>
           <Button
