@@ -187,7 +187,7 @@ export function DowntimeTimeline({ data, isLoading }: DowntimeTimelineProps) {
                 <XAxis
                   dataKey="timestamp"
                   stroke="hsl(var(--muted-foreground))"
-                  angle={-45}
+                  angle={-35}
                   textAnchor="end"
                   height={60}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
