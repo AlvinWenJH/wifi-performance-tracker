@@ -187,12 +187,22 @@ export function DowntimeTimeline({ data, isLoading }: DowntimeTimelineProps) {
                 <XAxis
                   dataKey="timestamp"
                   stroke="hsl(var(--muted-foreground))"
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                   tickLine={false}
                   axisLine={true}
                   tickFormatter={(value) => {
                     const date = new Date(value)
-                    return date.toLocaleDateString() + '\n' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+                    // Only show date if the hour is 1 AM
+                    if (date.getHours() === 1) {
+                      return date.toLocaleDateString() + ' ' + time
+                    }
+
+                    return time
                   }}
                 />
                 <YAxis
