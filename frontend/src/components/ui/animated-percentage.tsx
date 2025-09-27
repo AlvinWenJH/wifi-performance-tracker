@@ -67,7 +67,7 @@ export function AnimatedPercentage({
   }
 
   return (
-    <span className={`${className} ${isAnimating ? 'text-primary' : ''}`}>
+    <span className={`${className}`}>
       {formatValue(displayValue)}%
     </span>
   )

@@ -91,7 +91,6 @@ function App() {
 
   // State for smooth data transitions
   const [displayStats, setDisplayStats] = useState<ReliabilityStats | null>(null)
-  const [isTransitioning, setIsTransitioning] = useState(false)
 
   // WebSocket connection and message handling removed
 
@@ -230,12 +229,10 @@ function App() {
         // Handle smooth data transitions for reliability stats
         if (stats && reliabilityStats) {
           // If we have previous data, trigger transition
-          setIsTransitioning(true)
           // Set new data after a brief delay to allow transition to start
           setTimeout(() => {
             setReliabilityStats(stats)
             setDisplayStats(stats)
-            setIsTransitioning(false)
           }, 100)
         } else {
           // First load or no previous data
@@ -495,7 +492,7 @@ function App() {
                   <Activity className="h-5 w-5 text-primary" />
                 </div>
                 <div className="text-center mb-6">
-                  <div className="text-5xl font-bold mb-3 text-foreground">
+                  <div className="text-5xl font-bold mb-3 text-primary">
                     {displayStats && displayStats.uptime_percentage !== undefined ? (
                       <AnimatedPercentage
                         value={displayStats.uptime_percentage}
@@ -575,14 +572,14 @@ function App() {
                     <div className="text-sm mb-2 text-muted-foreground font-medium">Connection Status</div>
                     <div className="flex items-center space-x-2">
                       <div className="w-3 h-3 rounded-full bg-primary"></div>
-                      <span className="text-lg font-semibold text-foreground">Active</span>
+                      <span className="text-lg font-semibold text-primary">Active</span>
                     </div>
                   </div>
 
                   {/* Current Response Time */}
                   <div>
                     <div className="text-sm mb-2 text-muted-foreground font-medium">Current Response Time</div>
-                    <div className="text-xl font-semibold text-primary">
+                    <div className="text-xl font-semibold text-foreground">
                       {chartData.length > 0 ? `${chartData[chartData.length - 1]?.responseTime?.toFixed(1)}ms` : '--'}
                     </div>
                   </div>
@@ -634,9 +631,10 @@ function App() {
                 {/* Response Times */}
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Average</div>
-                  <div className="text-lg font-bold text-primary">
+                  <div className="text-lg font-bold text-foreground">
                     {displayStats?.avg_response_time !== undefined ? (
                       <AnimatedCounter
+                        key={`avg-${timeRange}`}
                         value={displayStats.avg_response_time}
                         decimals={2}
                         suffix="ms"
@@ -648,9 +646,10 @@ function App() {
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Median</div>
-                  <div className="text-lg font-bold text-primary">
+                  <div className="text-lg font-bold text-foreground">
                     {displayStats?.median_response_time !== undefined ? (
                       <AnimatedCounter
+                        key={`median-${timeRange}`}
                         value={displayStats.median_response_time}
                         decimals={2}
                         suffix="ms"
@@ -662,9 +661,10 @@ function App() {
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Min</div>
-                  <div className="text-lg font-bold text-primary">
+                  <div className="text-lg font-bold text-foreground">
                     {displayStats?.min_response_time !== undefined ? (
                       <AnimatedCounter
+                        key={`min-${timeRange}`}
                         value={displayStats.min_response_time}
                         decimals={2}
                         suffix="ms"
@@ -676,9 +676,10 @@ function App() {
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Max</div>
-                  <div className="text-lg font-bold text-primary">
+                  <div className="text-lg font-bold text-foreground">
                     {displayStats?.max_response_time !== undefined ? (
                       <AnimatedCounter
+                        key={`max-${timeRange}`}
                         value={displayStats.max_response_time}
                         decimals={2}
                         suffix="ms"
@@ -691,9 +692,10 @@ function App() {
                 {/* Reliability Metrics */}
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Total Pings</div>
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-primary">
                     {displayStats?.total_pings !== undefined ? (
                       <AnimatedCounter
+                        key={`total-pings-${timeRange}`}
                         value={displayStats.total_pings}
                         decimals={0}
                         duration={500}
@@ -711,6 +713,7 @@ function App() {
                   <div className="text-lg font-bold text-destructive">
                     {displayStats?.packet_losses !== undefined ? (
                       <AnimatedCounter
+                        key={`packet-losses-${timeRange}`}
                         value={displayStats.packet_losses}
                         decimals={0}
                         duration={500}
@@ -724,6 +727,7 @@ function App() {
                   <div className="text-lg font-bold text-foreground">
                     {displayStats?.packet_loss_rate !== undefined ? (
                       <AnimatedPercentage
+                        key={`loss-rate-${timeRange}`}
                         value={displayStats.packet_loss_rate * 100}
                         decimals={2}
                         duration={500}
@@ -734,9 +738,10 @@ function App() {
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">95th Percentile</div>
-                  <div className="text-lg font-bold text-accent">
+                  <div className="text-lg font-bold text-foreground">
                     {displayStats?.p95_response_time !== undefined ? (
                       <AnimatedCounter
+                        key={`p95-${timeRange}`}
                         value={displayStats.p95_response_time}
                         decimals={2}
                         suffix="ms"
