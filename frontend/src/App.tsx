@@ -441,7 +441,7 @@ function App() {
       {/* Main Dashboard - Single Screen Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Top Row - Main Performance Card */}
-        <Card className="col-span-1 lg:col-span-12">
+        <Card className="col-span-1 lg:col-span-12 border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-6">
             <div>
               <CardTitle className="text-lg font-semibold">Network Performance Dashboard</CardTitle>
