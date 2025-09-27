@@ -8,6 +8,8 @@ import { DowntimeTimeline } from './components/DowntimeTimeline'
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { Wifi, Activity, Globe, RefreshCw, Plus, Trash2, Sun, Moon } from 'lucide-react'
 import { useTheme } from './contexts/ThemeContext'
+import { AnimatedCounter } from './components/ui/animated-counter'
+import { AnimatedPercentage } from './components/ui/animated-percentage'
 
 interface PingMetric {
   id: number
@@ -86,6 +88,10 @@ function App() {
   const [showDowntimeModal, setShowDowntimeModal] = useState(false)
   const [downtimeData, setDowntimeData] = useState<DowntimeData | null>(null)
   const [isLoadingDowntime, setIsLoadingDowntime] = useState(false)
+
+  // State for smooth data transitions
+  const [displayStats, setDisplayStats] = useState<ReliabilityStats | null>(null)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
   // WebSocket connection and message handling removed
 
@@ -220,7 +226,23 @@ function App() {
       // Batch all state updates together to prevent multiple re-renders
       startTransition(() => {
         setPingData(Array.isArray(metrics) ? metrics : [])
-        setReliabilityStats(stats)
+
+        // Handle smooth data transitions for reliability stats
+        if (stats && reliabilityStats) {
+          // If we have previous data, trigger transition
+          setIsTransitioning(true)
+          // Set new data after a brief delay to allow transition to start
+          setTimeout(() => {
+            setReliabilityStats(stats)
+            setDisplayStats(stats)
+            setIsTransitioning(false)
+          }, 100)
+        } else {
+          // First load or no previous data
+          setReliabilityStats(stats)
+          setDisplayStats(stats)
+        }
+
         setIspInfo(ispData)
         setMonitoringActive(statusData.monitoring_active)
         setMonitoredHosts(hostsData.active_monitoring_hosts || [])
@@ -411,7 +433,7 @@ function App() {
                   <Sun className="h-4 w-4 text-muted-foreground" />
                   <Toggle
                     pressed={theme === 'dark'}
-                    onPressedChange={() => {}}
+                    onPressedChange={() => { }}
                     onClick={(event) => toggleTheme(event)}
                     size="sm"
                     aria-label="Toggle dark mode"
@@ -474,12 +496,18 @@ function App() {
                 </div>
                 <div className="text-center mb-6">
                   <div className="text-5xl font-bold mb-3 text-foreground">
-                    {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? `${reliabilityStats.uptime_percentage.toFixed(1)}%` : '--'}
+                    {displayStats && displayStats.uptime_percentage !== undefined ? (
+                      <AnimatedPercentage
+                        value={displayStats.uptime_percentage}
+                        decimals={1}
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                   <div className="flex items-center justify-center space-x-2 mb-2">
-                    <div className={`w-3 h-3 rounded-full ${reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityColor(reliabilityStats.uptime_percentage) : 'bg-gray-300'}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${displayStats && displayStats.uptime_percentage !== undefined ? getReliabilityColor(displayStats.uptime_percentage) : 'bg-gray-300'}`}></div>
                     <span className="text-sm font-medium text-muted-foreground">
-                      {reliabilityStats && reliabilityStats.uptime_percentage !== undefined ? getReliabilityStatus(reliabilityStats.uptime_percentage) : 'Loading...'}
+                      {displayStats && displayStats.uptime_percentage !== undefined ? getReliabilityStatus(displayStats.uptime_percentage) : 'Loading...'}
                     </span>
                   </div>
                 </div>
@@ -487,13 +515,26 @@ function App() {
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Avg Response</span>
                     <span className="font-semibold text-foreground">
-                      {reliabilityStats && reliabilityStats.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(1)}ms` : '--'}
+                      {displayStats && displayStats.avg_response_time !== undefined ? (
+                        <AnimatedCounter
+                          value={displayStats.avg_response_time}
+                          decimals={1}
+                          suffix="ms"
+                          duration={1000}
+                        />
+                      ) : '--'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Packet Loss</span>
                     <span className="font-semibold text-foreground">
-                      {reliabilityStats && reliabilityStats.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
+                      {displayStats && displayStats.packet_loss_rate !== undefined ? (
+                        <AnimatedPercentage
+                          value={displayStats.packet_loss_rate * 100}
+                          decimals={2}
+                          duration={1000}
+                        />
+                      ) : '--'}
                     </span>
                   </div>
                 </div>
@@ -594,28 +635,56 @@ function App() {
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Average</div>
                   <div className="text-lg font-bold text-primary">
-                    {reliabilityStats?.avg_response_time !== undefined ? `${reliabilityStats.avg_response_time.toFixed(2)}ms` : '--'}
+                    {displayStats?.avg_response_time !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.avg_response_time}
+                        decimals={2}
+                        suffix="ms"
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Median</div>
                   <div className="text-lg font-bold text-primary">
-                    {reliabilityStats?.median_response_time !== undefined ? `${reliabilityStats.median_response_time.toFixed(2)}ms` : '--'}
+                    {displayStats?.median_response_time !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.median_response_time}
+                        decimals={2}
+                        suffix="ms"
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Min</div>
                   <div className="text-lg font-bold text-primary">
-                    {reliabilityStats?.min_response_time !== undefined ? `${reliabilityStats.min_response_time.toFixed(2)}ms` : '--'}
+                    {displayStats?.min_response_time !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.min_response_time}
+                        decimals={2}
+                        suffix="ms"
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Max</div>
                   <div className="text-lg font-bold text-primary">
-                    {reliabilityStats?.max_response_time !== undefined ? `${reliabilityStats.max_response_time.toFixed(2)}ms` : '--'}
+                    {displayStats?.max_response_time !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.max_response_time}
+                        decimals={2}
+                        suffix="ms"
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
@@ -623,7 +692,13 @@ function App() {
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Total Pings</div>
                   <div className="text-lg font-bold text-foreground">
-                    {reliabilityStats?.total_pings !== undefined ? reliabilityStats.total_pings.toLocaleString() : '--'}
+                    {displayStats?.total_pings !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.total_pings}
+                        decimals={0}
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
@@ -634,21 +709,40 @@ function App() {
                 >
                   <div className="text-sm font-medium text-muted-foreground mb-1">Packet Losses</div>
                   <div className="text-lg font-bold text-destructive">
-                    {reliabilityStats?.packet_losses !== undefined ? reliabilityStats.packet_losses.toLocaleString() : '--'}
+                    {displayStats?.packet_losses !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.packet_losses}
+                        decimals={0}
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Loss Rate</div>
                   <div className="text-lg font-bold text-foreground">
-                    {reliabilityStats?.packet_loss_rate !== undefined ? `${(reliabilityStats.packet_loss_rate * 100).toFixed(2)}%` : '--'}
+                    {displayStats?.packet_loss_rate !== undefined ? (
+                      <AnimatedPercentage
+                        value={displayStats.packet_loss_rate * 100}
+                        decimals={2}
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
 
                 <div className="rounded-lg p-4 border border-border bg-muted/30">
                   <div className="text-sm font-medium text-muted-foreground mb-1">95th Percentile</div>
                   <div className="text-lg font-bold text-accent">
-                    {reliabilityStats?.p95_response_time !== undefined ? `${reliabilityStats.p95_response_time.toFixed(2)}ms` : '--'}
+                    {displayStats?.p95_response_time !== undefined ? (
+                      <AnimatedCounter
+                        value={displayStats.p95_response_time}
+                        decimals={2}
+                        suffix="ms"
+                        duration={500}
+                      />
+                    ) : '--'}
                   </div>
                 </div>
               </div>
