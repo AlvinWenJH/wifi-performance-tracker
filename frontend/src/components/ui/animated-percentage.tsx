@@ -14,7 +14,7 @@ export function AnimatedPercentage({
   className = ''
 }: AnimatedPercentageProps) {
   const [displayValue, setDisplayValue] = useState(value)
-  const [isAnimating, setIsAnimating] = useState(false)
+
   const animationRef = useRef<number | null>(null)
   const startTimeRef = useRef<number | null>(null)
   const startValueRef = useRef<number>(value)
@@ -22,7 +22,6 @@ export function AnimatedPercentage({
   useEffect(() => {
     if (value === displayValue) return
 
-    setIsAnimating(true)
     startValueRef.current = displayValue
     startTimeRef.current = Date.now()
 
@@ -41,7 +40,6 @@ export function AnimatedPercentage({
         animationRef.current = requestAnimationFrame(animate)
       } else {
         setDisplayValue(value)
-        setIsAnimating(false)
       }
     }
 
